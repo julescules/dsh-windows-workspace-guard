@@ -1,0 +1,8 @@
+# Mounts the out-of-tree plugin through the official dsh.bundle patch mechanism.
+- insert:
+    - id: windows-workspace-guard
+      name: dsh-windows-workspace-guard
+      config:
+        enabled: true
+        mode: block
+        guardGit: true

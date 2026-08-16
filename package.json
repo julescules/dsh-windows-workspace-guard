@@ -1,0 +1,62 @@
+{
+  "name": "dsh-windows-workspace-guard",
+  "version": "0.2.0",
+  "description": "Windows workspace, immutable-path, Git-risk, approval, and audit guard for DeepSeek Harness.",
+  "author": "julescules",
+  "homepage": "https://github.com/julescules/dsh-windows-workspace-guard#readme",
+  "repository": {
+    "type": "git",
+    "url": "git+https://github.com/julescules/dsh-windows-workspace-guard.git"
+  },
+  "bugs": {
+    "url": "https://github.com/julescules/dsh-windows-workspace-guard/issues"
+  },
+  "type": "module",
+  "main": "index.js",
+  "exports": {
+    ".": "./index.js",
+    "./analyzer": "./analyzer.js",
+    "./audit": "./audit.js",
+    "./policy": "./policy.js"
+  },
+  "files": [
+    "index.js",
+    "analyzer.js",
+    "audit.js",
+    "policy.js",
+    "cordis.patch.yml",
+    "README.md",
+    "README.zh.md",
+    "docs/demo.svg",
+    "LICENSE"
+  ],
+  "scripts": {
+    "test": "node --test",
+    "check": "node --check index.js && node --check analyzer.js && node --check audit.js && node --check policy.js && npm test",
+    "pack:dry": "npm pack --dry-run"
+  },
+  "engines": {
+    "node": "^22.19.0 || >=24.0.0"
+  },
+  "peerDependencies": {
+    "@deepseek-ai/cordis": "^4.0.1",
+    "@deepseek-ai/dsh-tools": "^0.0.1-rc.1",
+    "@deepseek-ai/schemastery": "^3.18.1"
+  },
+  "dsh": {
+    "bundle": {
+      "patch": "./cordis.patch.yml"
+    }
+  },
+  "keywords": [
+    "dsh-plugin",
+    "deepseek-harness",
+    "powershell",
+    "windows",
+    "workspace-safety",
+    "audit-log",
+    "git-safety",
+    "approval-policy"
+  ],
+  "license": "MIT"
+}

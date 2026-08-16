@@ -1,0 +1,8 @@
+node_modules/
+builds/
+operation_logs/
+RESEARCH.md
+coverage/
+.npmrc
+*.log
+*.tgz
