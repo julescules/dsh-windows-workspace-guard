@@ -5,4 +5,8 @@
       config:
         enabled: true
         mode: block
+        toolNames:
+          - pwsh
         guardGit: true
+        guardSystem: true
+        guardProcesses: true

@@ -9,11 +9,24 @@ test('declares the official dsh bundle manifest shape', async () => {
   assert.equal(pkg.dsh.bundle.patch, './cordis.patch.yml')
   assert.equal(pkg.type, 'module')
   assert.equal(pkg.main, 'index.js')
-  assert.equal(pkg.version, '0.2.0')
+  assert.equal(pkg.version, '0.3.0')
+  assert.equal(pkg.exports['./client'], './client.js')
+  assert.equal(pkg.exports['./config-source'], './config-source.js')
+  assert.ok(pkg.files.includes('client.js'))
+  assert.ok(pkg.files.includes('config-source.js'))
   assert.ok(pkg.files.includes('audit.js'))
   assert.ok(pkg.files.includes('policy.js'))
+  assert.equal(pkg.peerDependencies['@deepseek-ai/dsh-settings'], '>=0.0.1-rc.1 <0.1.0')
+  assert.equal(pkg.dsh.client.platform, 'web')
+  assert.ok(pkg.dsh.client.inject.includes('@deepseek-ai/dsh-client-ui-settings-plugins'))
   assert.equal(pkg.scripts.prepare, undefined)
   assert.ok(pkg.keywords.includes('dsh-plugin'))
+})
+
+test('host plugin declares the settings service used by the live section', async () => {
+  const source = await readFile(new URL('index.js', root), 'utf8')
+  assert.match(source, /export const inject = \['tools', 'settings'\]/)
+  assert.match(source, /installSettingsSection\(ctx, SETTINGS_NAMESPACE, Config, config/)
 })
 
 test('bundle patch mounts the published package name', async () => {
@@ -21,4 +34,7 @@ test('bundle patch mounts the published package name', async () => {
   assert.match(patch, /id:\s*windows-workspace-guard/)
   assert.match(patch, /name:\s*dsh-windows-workspace-guard/)
   assert.match(patch, /mode:\s*block/)
+  assert.match(patch, /toolNames:\s*\n\s*- pwsh/)
+  assert.match(patch, /guardSystem:\s*true/)
+  assert.match(patch, /guardProcesses:\s*true/)
 })
