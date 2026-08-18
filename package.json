@@ -1,7 +1,7 @@
 {
   "name": "dsh-windows-workspace-guard",
-  "version": "0.2.0",
-  "description": "Windows workspace, immutable-path, Git-risk, approval, and audit guard for DeepSeek Harness.",
+  "version": "0.3.0",
+  "description": "Windows workspace, system-mutation, Git-risk, approval, settings, and audit guard for DeepSeek Harness.",
   "author": "julescules",
   "homepage": "https://github.com/julescules/dsh-windows-workspace-guard#readme",
   "repository": {
@@ -15,14 +15,18 @@
   "main": "index.js",
   "exports": {
     ".": "./index.js",
+    "./client": "./client.js",
     "./analyzer": "./analyzer.js",
     "./audit": "./audit.js",
+    "./config-source": "./config-source.js",
     "./policy": "./policy.js"
   },
   "files": [
     "index.js",
+    "client.js",
     "analyzer.js",
     "audit.js",
+    "config-source.js",
     "policy.js",
     "cordis.patch.yml",
     "README.md",
@@ -32,7 +36,7 @@
   ],
   "scripts": {
     "test": "node --test",
-    "check": "node --check index.js && node --check analyzer.js && node --check audit.js && node --check policy.js && npm test",
+    "check": "node --check index.js && node --check client.js && node --check analyzer.js && node --check audit.js && node --check config-source.js && node --check policy.js && npm test",
     "pack:dry": "npm pack --dry-run"
   },
   "engines": {
@@ -40,12 +44,29 @@
   },
   "peerDependencies": {
     "@deepseek-ai/cordis": "^4.0.1",
+    "@deepseek-ai/dsh-settings": ">=0.0.1-rc.1 <0.1.0",
     "@deepseek-ai/dsh-tools": "^0.0.1-rc.1",
-    "@deepseek-ai/schemastery": "^3.18.1"
+    "@deepseek-ai/schemastery": "^3.18.1",
+    "react": ">=19.0.0 <20.0.0"
+  },
+  "peerDependenciesMeta": {
+    "react": {
+      "optional": true
+    }
   },
   "dsh": {
     "bundle": {
       "patch": "./cordis.patch.yml"
+    },
+    "client": {
+      "platform": "web",
+      "inject": [
+        "@deepseek-ai/dsh-client-runtime",
+        "@deepseek-ai/dsh-client-locale",
+        "@deepseek-ai/dsh-client-ui-slots",
+        "@deepseek-ai/dsh-client-ui-settings",
+        "@deepseek-ai/dsh-client-ui-settings-plugins"
+      ]
     }
   },
   "keywords": [
@@ -56,7 +77,9 @@
     "workspace-safety",
     "audit-log",
     "git-safety",
-    "approval-policy"
+    "approval-policy",
+    "settings-card",
+    "windows-security"
   ],
   "license": "MIT"
 }

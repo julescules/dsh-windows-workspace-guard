@@ -5,7 +5,7 @@
 > [!IMPORTANT]
 > 非官方社区插件，由社区成员独立开发和维护，未经 DeepSeek 官方审核或背书。
 
-这是一个面向 Windows 的 DeepSeek Harness 安全插件。它会在执行前检查 Agent 发出的 `pwsh` 命令，保护工作区、原始文件和 Git 历史。
+这是一个面向 Windows 的 DeepSeek Harness 安全插件。它会在执行前检查 Agent 发出的 PowerShell 命令，保护工作区、原始文件、Windows 系统状态、进程和 Git 恢复路径。
 
 ![允许、审批和强制阻断三种策略结果](docs/demo.svg)
 
@@ -13,15 +13,18 @@
 
 - 删除、移动和覆盖目标必须位于可信工作区内；
 - 可将 `original/`、签名文件或任意目录设为不可修改；
-- 检查 `git reset --hard`、`git clean -fdx`、强推等高风险操作；
+- 检查 `git reset --hard`、`git clean -fdx`、工作树还原、删除 stash、强推等高风险操作；
+- 强制阻断注册表、服务、计划任务、ACL/所有权、junction/symlink 和嵌套 PowerShell 变更；
+- 检查终止进程操作，并可配置需要拦截的工具名称；
 - 支持直接阻断、单次审批、只记录不阻断三种模式；
+- 在官方 DSH 插件设置页提供实时设置卡片（需要 DSH `v0.1.0-rc.7` 或更新版本）；
 - 可写入追加式 JSONL 审计，命令预览会脱敏并保存 SHA-256；
 - 磁盘操作、盘符根目录、编码命令、`System.IO` 绕过和保护目录始终强制阻断。
 
 ## 安装
 
 ```powershell
-dsh plugin --profile web add github:julescules/dsh-windows-workspace-guard#v0.2.0
+dsh plugin --profile web add github:julescules/dsh-windows-workspace-guard#v0.3.0
 dsh --profile web --dump-config
 ```
 
@@ -39,8 +42,12 @@ dsh --profile web --dump-config
     protectedPaths:
       - 'D:\projects\current-project\original'
     guardGit: true
+    guardSystem: true
+    guardProcesses: true
     auditPath: 'D:\projects\current-project\operation_logs\dsh-guard.audit.jsonl'
 ```
+
+在 DSH `v0.1.0-rc.7` 或更新版本中，也可以从“设置 → 插件 → Windows 工作区防护”修改这些字段，保存后立即生效，不需要重启插件。
 
 | 检查结果 | `block` | `ask` | `report` |
 |---|---|---|---|
@@ -56,8 +63,9 @@ dsh --profile web --dump-config
 
 ## 已验证
 
-- 20/20 单元及对抗测试通过；
+- 28/28 单元、浏览器接口及对抗测试通过；
 - 使用官方 `dsh.bundle.patch` 插件结构；
+- 使用官方带 key 的 `settings.plugin.item` 设置卡及 `settingsScope` 实时配置协议；
 - 使用官方 `tools/pre-execute` allow/deny/ask 协议；
 - 安装时不需要运行构建脚本；
 - UTF-8 追加式审计及常见密钥脱敏。
@@ -70,8 +78,8 @@ npm pack --dry-run
 ## 已知限制
 
 - 静态检查不能代替完整 PowerShell 解析器或操作系统沙箱；
-- 只拦截名称为 `pwsh` 的 DSH 工具；
-- 目前不会在运行时解析 junction/symlink；
+- 默认拦截 `pwsh`；可在 `toolNames` 中加入其他 PowerShell 工具名称；
+- 目前不会在运行时解析既有 junction/symlink，但会强制阻断创建操作；
 - DeepSeek Harness 仍处于开发预览阶段，建议固定已审核的版本或提交。
 
 ## 许可证

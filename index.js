@@ -1,20 +1,26 @@
 import { defineTool } from '@deepseek-ai/dsh-tools'
+import { installSettingsSection, settingsNamespace } from '@deepseek-ai/dsh-settings'
 import Schema from '@deepseek-ai/schemastery'
 import { analyzePowerShellCommand, formatAnalysis } from './analyzer.js'
 import { appendAuditRecord, createAuditRecord } from './audit.js'
+import { createConfigSource, guardedToolNames } from './config-source.js'
 import { decide, normalizeMode } from './policy.js'
 
 export const name = 'dsh-windows-workspace-guard'
-export const inject = ['tools']
+export const inject = ['tools', 'settings']
+export const SETTINGS_NAMESPACE = settingsNamespace('windows-workspace-guard')
 
 export const Config = Schema.object({
   enabled: Schema.boolean().default(true),
   mode: Schema.string().default('block'),
   reportOnly: Schema.boolean().default(false),
+  toolNames: Schema.array(Schema.string()).default(['pwsh']),
   workspaceRoots: Schema.array(Schema.string()).default([]),
   protectedPaths: Schema.array(Schema.string()).default([]),
   allowExact: Schema.array(Schema.string()).default([]),
   guardGit: Schema.boolean().default(true),
+  guardSystem: Schema.boolean().default(true),
+  guardProcesses: Schema.boolean().default(true),
   logDecisions: Schema.boolean().default(true),
   auditPath: Schema.string().default(''),
   auditIncludeCommand: Schema.boolean().default(false),
@@ -70,6 +76,8 @@ function analyze(command, cwd, config) {
     protectedPaths: config.protectedPaths,
     allowExact: config.allowExact,
     guardGit: config.guardGit,
+    guardSystem: config.guardSystem,
+    guardProcesses: config.guardProcesses,
   })
 }
 
@@ -79,33 +87,38 @@ function decisionReason(result) {
 }
 
 export function apply(ctx, config) {
-  const mode = normalizeMode(config.mode, config.reportOnly)
+  const source = createConfigSource(config)
+  installSettingsSection(ctx, SETTINGS_NAMESPACE, Config, config, {
+    setSource: (current) => { source.setSource(current) },
+    onChange: () => {},
+  })
 
   ctx.on('tools/pre-execute', async (exec, next) => {
-    if (!config.enabled || exec.name !== 'pwsh') return next()
+    const active = source.get()
+    if (!active.enabled || !guardedToolNames(active).has(String(exec.name).toLowerCase())) return next()
     const command = typeof exec.arguments?.command === 'string' ? exec.arguments.command : ''
     const cwd = sessionCwd(exec)
-    const result = analyze(command, cwd, config)
-    const action = decide(result, mode)
+    const result = analyze(command, cwd, active)
+    const action = decide(result, normalizeMode(active.mode, active.reportOnly))
 
-    if (config.logDecisions && result.mutating) {
+    if (active.logDecisions && result.mutating) {
       console.log(`[dsh-windows-workspace-guard] ${action.auditDecision} ${result.status} ${result.commandPreview}`)
     }
 
-    if (config.auditPath && result.mutating) {
+    if (active.auditPath && result.mutating) {
       try {
         const record = createAuditRecord({
           command,
           cwd,
           result,
           decision: action.auditDecision,
-          includeCommand: config.auditIncludeCommand,
+          includeCommand: active.auditIncludeCommand,
           callId: exec.callId,
         })
-        await appendAuditRecord(config.auditPath, record)
+        await appendAuditRecord(active.auditPath, record)
       } catch (error) {
         console.error(`[dsh-windows-workspace-guard] audit write failed: ${error instanceof Error ? error.message : String(error)}`)
-        if (config.auditFailClosed) return { kind: 'deny', reason: '[windows-workspace-guard] audit write failed (fail-closed)' }
+        if (active.auditFailClosed) return { kind: 'deny', reason: '[windows-workspace-guard] audit write failed (fail-closed)' }
       }
     }
 
@@ -126,8 +139,9 @@ export function apply(ctx, config) {
       render: (_args, value) => [{ type: 'text', text: formatAnalysis(value) }],
     },
     async execute(args, exec) {
+      const active = source.get()
       const cwd = args.cwd || sessionCwd(exec)
-      return analyze(args.command, cwd, config)
+      return analyze(args.command, cwd, active)
     },
   }))
 }

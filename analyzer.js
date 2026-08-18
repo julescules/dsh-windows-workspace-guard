@@ -1,6 +1,6 @@
 import path from 'node:path'
 
-export const POLICY_VERSION = '2026-08-16.2'
+export const POLICY_VERSION = '2026-08-18.3'
 
 const POWERSHELL_MUTATION_PATTERN = /\b(?:Remove-Item|Move-Item|Clear-Content|Rename-Item|Copy-Item|Set-Content|ri|rm|del|erase|rmdir|rd|mi|mv|ren|cp|copy)\b/i
 const DESTRUCTIVE_PATTERN = /\b(?:Remove-Item|Move-Item|Clear-Content|Rename-Item|ri|rm|del|erase|rmdir|rd|mi|mv|ren)\b/i
@@ -9,6 +9,13 @@ const DOTNET_MUTATION_PATTERN = /\[(?:System\.)?IO\.(?:Directory|File)\]\s*::\s*
 const CMD_DELETE_PATTERN = /\b(?:cmd(?:\.exe)?\s*\/c\s+)?(?:rd|rmdir|del|erase)\b/i
 const ROBOCOPY_MIRROR_PATTERN = /\brobocopy\b[^\r\n]*(?:\/MIR|\/PURGE)\b/i
 const OPAQUE_EXECUTION_PATTERN = /\b(?:Invoke-Expression|iex|EncodedCommand|enc)\b/i
+const NESTED_SHELL_PATTERN = /\b(?:powershell|pwsh)(?:\.exe)?\b[^\r\n]*(?:-(?:Command|EncodedCommand)|\s-enc\b)/i
+const REGISTRY_MUTATION_PATTERN = /(?:\b(?:New|Set|Remove|Rename)-ItemProperty\b[^\r\n]*(?:Registry::|HK(?:LM|CU|CR|U|CC):)|\breg(?:\.exe)?\s+(?:add|delete|import|restore|load|unload|copy)\b)/i
+const SERVICE_MUTATION_PATTERN = /(?:\b(?:New|Set|Remove|Start|Stop|Restart)-Service\b|\bsc(?:\.exe)?\s+(?:create|delete|config|start|stop|failure|sidtype|privs)\b)/i
+const SCHEDULED_TASK_MUTATION_PATTERN = /(?:\b(?:Register|Unregister|Set|Start|Stop|Disable|Enable)-ScheduledTask\b|\bschtasks(?:\.exe)?\s+\/(?:create|delete|change|run|end)\b)/i
+const ACL_MUTATION_PATTERN = /(?:\bSet-Acl\b|\btakeown(?:\.exe)?\b|\bicacls(?:\.exe)?\b[^\r\n]*\/(?:grant|deny|remove|setowner|reset|inheritance|restore)\b)/i
+const REPARSE_MUTATION_PATTERN = /(?:\bNew-Item\b[^\r\n]*-ItemType\s+(?:SymbolicLink|Junction)|\bmklink\b)/i
+const PROCESS_TERMINATION_PATTERN = /(?:\bStop-Process\b|\btaskkill(?:\.exe)?\b)/i
 const LITERAL_PATH_PATTERN = /-LiteralPath\s+(?:'([^']*)'|"([^"]*)"|([^\s;|&]+))/gi
 const DESTINATION_PATTERN = /-Destination\s+(?:'([^']*)'|"([^"]*)"|([^\s;|&]+))/gi
 const PATH_PATTERN = /-Path\s+(?:'([^']*)'|"([^"]*)"|([^\s;|&]+))/gi
@@ -19,6 +26,12 @@ const HARD_BLOCK_IDS = new Set([
   'cmd-bypass',
   'mirror-delete',
   'opaque-execution',
+  'nested-shell',
+  'registry-mutation',
+  'service-mutation',
+  'scheduled-task-mutation',
+  'acl-mutation',
+  'reparse-mutation',
   'protected-path',
   'broad-target',
 ])
@@ -96,11 +109,16 @@ function analyzeGit(command) {
   if (!/\bgit(?:\.exe)?\b/i.test(command)) return []
   const rules = [
     ['git-reset-hard', /\bgit(?:\.exe)?\b[^\r\n;&|]*\breset\b[^\r\n;&|]*--hard\b/i, 'CRITICAL', 'git reset --hard can discard tracked changes.'],
-    ['git-clean-force', /\bgit(?:\.exe)?\b[^\r\n;&|]*\bclean\b[^\r\n;&|]*-(?=[a-z]*f)(?=[a-z]*(?:d|x))[a-z]+\b/i, 'CRITICAL', 'git clean with force and directory/ignored-file flags can permanently remove untracked work.'],
+    ['git-clean-force', /\bgit(?:\.exe)?\b[^\r\n;&|]*\bclean\b[^\r\n;&|]*(?:--force\b|-(?=[a-z]*f)[a-z]+\b)/i, 'CRITICAL', 'git clean with force can permanently remove untracked work.'],
     ['git-force-push', /\bgit(?:\.exe)?\b[^\r\n;&|]*\bpush\b[^\r\n;&|]*(?:--force(?:-with-lease)?|-f)\b/i, 'HIGH', 'Force-pushing can rewrite shared remote history.'],
     ['git-branch-delete', /\bgit(?:\.exe)?\b[^\r\n;&|]*\bbranch\b[^\r\n;&|]*\s-D(?:\s|$)/i, 'HIGH', 'Force-deleting a branch can discard its reachable name.'],
     ['git-reflog-expire', /\bgit(?:\.exe)?\b[^\r\n;&|]*\breflog\s+expire\b/i, 'HIGH', 'Expiring reflogs removes a recovery path.'],
     ['git-prune-now', /\bgit(?:\.exe)?\b[^\r\n;&|]*\bgc\b[^\r\n;&|]*--prune(?:=|\s+)now\b/i, 'HIGH', 'Immediate Git pruning removes recovery objects.'],
+    ['git-restore-worktree', /\bgit(?:\.exe)?\b[^\r\n;&|]*\brestore\b(?![^\r\n;&|]*--staged\b)[^\r\n;&|]*/i, 'HIGH', 'git restore can overwrite uncommitted worktree changes.'],
+    ['git-checkout-paths', /\bgit(?:\.exe)?\b[^\r\n;&|]*\bcheckout\b[^\r\n;&|]*\s--\s/i, 'HIGH', 'git checkout -- can overwrite uncommitted paths.'],
+    ['git-stash-delete', /\bgit(?:\.exe)?\b[^\r\n;&|]*\bstash\s+(?:drop|clear)\b/i, 'HIGH', 'Deleting stashes removes a recovery path.'],
+    ['git-worktree-remove', /\bgit(?:\.exe)?\b[^\r\n;&|]*\bworktree\s+remove\b[^\r\n;&|]*(?:--force|-f)\b/i, 'HIGH', 'Force-removing a worktree can discard uncommitted files.'],
+    ['git-update-ref-delete', /\bgit(?:\.exe)?\b[^\r\n;&|]*\bupdate-ref\b[^\r\n;&|]*\s-d\b/i, 'HIGH', 'Deleting a ref can remove a recovery name.'],
   ]
   return rules.filter(([, pattern]) => pattern.test(command)).map(([id, , severity, message]) => finding(id, severity, message))
 }
@@ -131,10 +149,21 @@ export function analyzePowerShellCommand(command, options = {}) {
   const cmdMutation = CMD_DELETE_PATTERN.test(text)
   const mirrorMutation = ROBOCOPY_MIRROR_PATTERN.test(text)
   const opaqueExecution = OPAQUE_EXECUTION_PATTERN.test(text)
+  const nestedShell = NESTED_SHELL_PATTERN.test(text)
   const cmdletMutation = POWERSHELL_MUTATION_PATTERN.test(text)
   const destructive = diskMutation || dotnetMutation || cmdMutation || mirrorMutation || DESTRUCTIVE_PATTERN.test(text)
   const gitFindings = options.guardGit === false ? [] : analyzeGit(text)
-  const mutating = destructive || cmdletMutation || gitFindings.length > 0 || opaqueExecution
+  const systemFindings = options.guardSystem === false ? [] : [
+    REGISTRY_MUTATION_PATTERN.test(text) ? finding('registry-mutation', 'CRITICAL', 'Registry mutation is outside the file-workspace safety boundary.') : undefined,
+    SERVICE_MUTATION_PATTERN.test(text) ? finding('service-mutation', 'CRITICAL', 'Service mutation can persist or disrupt system-wide execution.') : undefined,
+    SCHEDULED_TASK_MUTATION_PATTERN.test(text) ? finding('scheduled-task-mutation', 'CRITICAL', 'Scheduled-task mutation creates persistence outside the workspace.') : undefined,
+    ACL_MUTATION_PATTERN.test(text) ? finding('acl-mutation', 'CRITICAL', 'ACL or ownership mutation can bypass workspace access controls.') : undefined,
+    REPARSE_MUTATION_PATTERN.test(text) ? finding('reparse-mutation', 'CRITICAL', 'Symbolic-link or junction creation can redirect later writes outside the workspace.') : undefined,
+  ].filter(Boolean)
+  const processFindings = options.guardProcesses === false || !PROCESS_TERMINATION_PATTERN.test(text)
+    ? []
+    : [finding('process-termination', 'HIGH', 'Process termination can kill the Harness, a service, or unrelated user work.')]
+  const mutating = destructive || cmdletMutation || gitFindings.length > 0 || systemFindings.length > 0 || processFindings.length > 0 || opaqueExecution || nestedShell
 
   if (!mutating) {
     return { policyVersion: POLICY_VERSION, status: 'PASS', risk: 'LOW', mutating: false, destructive: false, hardBlock: false, allowedByExact: false, commandPreview: compactCommand(text), targets: [], findings: [] }
@@ -145,7 +174,10 @@ export function analyzePowerShellCommand(command, options = {}) {
   if (cmdMutation) findings.push(finding('cmd-bypass', 'CRITICAL', 'cmd.exe deletion aliases bypass -LiteralPath validation.'))
   if (mirrorMutation) findings.push(finding('mirror-delete', 'CRITICAL', 'robocopy mirror or purge can delete destination content.'))
   if (opaqueExecution) findings.push(finding('opaque-execution', 'CRITICAL', 'Encoded or dynamically evaluated PowerShell cannot be statically proven safe.'))
+  if (nestedShell) findings.push(finding('nested-shell', 'CRITICAL', 'Nested PowerShell command execution hides the effective command from this policy boundary.'))
   findings.push(...gitFindings)
+  findings.push(...systemFindings)
+  findings.push(...processFindings)
 
   const targets = collectValues(LITERAL_PATH_PATTERN, text)
   const pathTargets = collectValues(PATH_PATTERN, text)

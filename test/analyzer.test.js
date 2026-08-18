@@ -118,6 +118,61 @@ test('reviews dangerous Git history and cleanup commands', () => {
   assert.equal(hardReset.risk, 'CRITICAL')
 })
 
+test('reviews additional Git operations that discard recovery state', () => {
+  const commands = [
+    ['git clean -fdx', 'git-clean-force'],
+    ['git restore src/app.js', 'git-restore-worktree'],
+    ['git checkout HEAD -- src/app.js', 'git-checkout-paths'],
+    ['git stash drop stash@{0}', 'git-stash-delete'],
+    ['git stash clear', 'git-stash-delete'],
+    ['git worktree remove D:\\work\\old --force', 'git-worktree-remove'],
+    ['git update-ref -d refs/heads/old', 'git-update-ref-delete'],
+  ]
+  for (const [command, id] of commands) {
+    const result = analyzePowerShellCommand(command, options)
+    assert.equal(result.status, 'REVIEW', command)
+    assert.ok(result.findings.some((item) => item.id === id), command)
+  }
+
+  const stagedOnly = analyzePowerShellCommand('git restore --staged src/app.js', options)
+  assert.equal(stagedOnly.status, 'PASS')
+})
+
+test('hard-blocks opaque nested PowerShell execution', () => {
+  const result = analyzePowerShellCommand('pwsh.exe -NoProfile -Command "Remove-Item C:\\outside"', options)
+  assert.equal(result.status, 'FAIL')
+  assert.equal(result.hardBlock, true)
+  assert.ok(result.findings.some((item) => item.id === 'nested-shell'))
+})
+
+test('hard-blocks Windows system mutation families', () => {
+  const commands = [
+    ["Set-ItemProperty -LiteralPath 'HKLM:\\Software\\Example' -Name Enabled -Value 1", 'registry-mutation'],
+    ["Set-Service -Name Spooler -StartupType Disabled", 'service-mutation'],
+    ["Disable-ScheduledTask -TaskName Example", 'scheduled-task-mutation'],
+    ["icacls.exe D:\\work\\project /grant Users:F", 'acl-mutation'],
+    ["New-Item -ItemType Junction -Path D:\\work\\project\\link -Target C:\\outside", 'reparse-mutation'],
+  ]
+  for (const [command, id] of commands) {
+    const result = analyzePowerShellCommand(command, options)
+    assert.equal(result.status, 'FAIL', command)
+    assert.equal(result.hardBlock, true, command)
+    assert.ok(result.findings.some((item) => item.id === id), command)
+  }
+})
+
+test('makes system and process guards independently configurable', () => {
+  const systemOff = analyzePowerShellCommand('Stop-Service -Name Spooler', { ...options, guardSystem: false })
+  assert.equal(systemOff.status, 'PASS')
+
+  const process = analyzePowerShellCommand('Stop-Process -Name notepad', options)
+  assert.equal(process.status, 'REVIEW')
+  assert.ok(process.findings.some((item) => item.id === 'process-termination'))
+
+  const processOff = analyzePowerShellCommand('Stop-Process -Name notepad', { ...options, guardProcesses: false })
+  assert.equal(processOff.status, 'PASS')
+})
+
 test('checks overwrite-capable cmdlets and copy destinations', () => {
   const writeOutside = analyzePowerShellCommand("Set-Content -LiteralPath 'C:\\outside\\config.txt' -Value x", options)
   assert.equal(writeOutside.status, 'FAIL')
