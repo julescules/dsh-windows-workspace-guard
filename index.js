@@ -21,6 +21,8 @@ export const Config = Schema.object({
   guardGit: Schema.boolean().default(true),
   guardSystem: Schema.boolean().default(true),
   guardProcesses: Schema.boolean().default(true),
+  guardPersistentShell: Schema.boolean().default(true),
+  requireAbsoluteMutationPaths: Schema.boolean().default(true),
   logDecisions: Schema.boolean().default(true),
   auditPath: Schema.string().default(''),
   auditIncludeCommand: Schema.boolean().default(false),
@@ -78,6 +80,8 @@ function analyze(command, cwd, config) {
     guardGit: config.guardGit,
     guardSystem: config.guardSystem,
     guardProcesses: config.guardProcesses,
+    guardPersistentShell: config.guardPersistentShell,
+    requireAbsoluteMutationPaths: config.requireAbsoluteMutationPaths,
   })
 }
 
