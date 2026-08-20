@@ -148,6 +148,7 @@ test('hard-blocks opaque nested PowerShell execution', () => {
 test('hard-blocks Windows system mutation families', () => {
   const commands = [
     ["Set-ItemProperty -LiteralPath 'HKLM:\\Software\\Example' -Name Enabled -Value 1", 'registry-mutation'],
+    ["Set-Item -LiteralPath 'HKCU:\\Software\\Example' -Value unsafe", 'registry-mutation'],
     ["Set-Service -Name Spooler -StartupType Disabled", 'service-mutation'],
     ["Disable-ScheduledTask -TaskName Example", 'scheduled-task-mutation'],
     ["icacls.exe D:\\work\\project /grant Users:F", 'acl-mutation'],
@@ -171,6 +172,89 @@ test('makes system and process guards independently configurable', () => {
 
   const processOff = analyzePowerShellCommand('Stop-Process -Name notepad', { ...options, guardProcesses: false })
   assert.equal(processOff.status, 'PASS')
+})
+
+test('requires absolute mutation paths for persistent PowerShell safety', () => {
+  const relative = analyzePowerShellCommand("Remove-Item -LiteralPath '.\\builds\\old' -Recurse", options)
+  assert.equal(relative.status, 'FAIL')
+  assert.equal(relative.hardBlock, true)
+  assert.ok(relative.findings.some((item) => item.id === 'relative-target'))
+
+  const legacy = analyzePowerShellCommand(
+    "Remove-Item -LiteralPath '.\\builds\\old' -Recurse",
+    { ...options, requireAbsoluteMutationPaths: false },
+  )
+  assert.equal(legacy.status, 'PASS')
+})
+
+test('does not trust the startup cwd after a persistent location change', () => {
+  const result = analyzePowerShellCommand(
+    "Set-Location 'C:\\outside'; Remove-Item -LiteralPath '.\\victim.txt' -Force",
+    options,
+  )
+  assert.equal(result.status, 'FAIL')
+  assert.ok(result.findings.some((item) => item.id === 'persistent-cwd-change'))
+  assert.ok(result.findings.some((item) => item.id === 'relative-target'))
+
+  const locationOnly = analyzePowerShellCommand("Set-Location 'D:\\work\\project\\src'", options)
+  assert.equal(locationOnly.status, 'REVIEW')
+})
+
+test('hard-blocks persistent command-resolution bypasses', () => {
+  const commands = [
+    ["Set-Alias -Name Remove-Item -Value Invoke-Expression", 'command-shadowing'],
+    ["sal Remove-Item Invoke-Expression", 'command-shadowing'],
+    ["function global:Remove-Item { param($x) cmd /c del $x }", 'command-shadowing'],
+    [". '.\\bootstrap.ps1'", 'dot-source'],
+    ["Invoke-Command -ComputerName host -ScriptBlock { whoami }", 'remote-execution'],
+    ["icm host { whoami }", 'remote-execution'],
+  ]
+  for (const [command, id] of commands) {
+    const result = analyzePowerShellCommand(command, options)
+    assert.equal(result.status, 'FAIL', command)
+    assert.equal(result.hardBlock, true, command)
+    assert.ok(result.findings.some((item) => item.id === id), command)
+  }
+})
+
+test('hard-blocks detached work that can outlive the inspected call', () => {
+  for (const command of [
+    "Start-Process pwsh -ArgumentList '-Command', 'Remove-Item C:\\outside'",
+    "Start-Job -ScriptBlock { Remove-Item C:\\outside }",
+    "saps pwsh -ArgumentList '-Command', 'whoami'",
+    "Register-EngineEvent PowerShell.Exiting -Action { Set-Content C:\\outside\\x 1 }",
+  ]) {
+    const result = analyzePowerShellCommand(command, options)
+    assert.equal(result.status, 'FAIL', command)
+    assert.ok(result.findings.some((item) => item.id === 'detached-execution'), command)
+  }
+})
+
+test('reviews persistent module and environment state', () => {
+  const moduleState = analyzePowerShellCommand('Import-Module ExampleTools', options)
+  assert.equal(moduleState.status, 'REVIEW')
+  assert.ok(moduleState.findings.some((item) => item.id === 'module-state'))
+
+  const addType = analyzePowerShellCommand("Add-Type -TypeDefinition 'public class X {}'", options)
+  assert.equal(addType.status, 'REVIEW')
+  assert.ok(addType.findings.some((item) => item.id === 'module-state'))
+
+  const environment = analyzePowerShellCommand("$env:EXAMPLE_MODE='unsafe'", options)
+  assert.equal(environment.status, 'REVIEW')
+  assert.ok(environment.findings.some((item) => item.id === 'persistent-environment'))
+
+  const readAfterEnvironment = analyzePowerShellCommand("$env:EXAMPLE_MODE='unsafe'; Get-Content -LiteralPath '.\\config.txt'", options)
+  assert.equal(readAfterEnvironment.status, 'REVIEW')
+  assert.ok(!readAfterEnvironment.findings.some((item) => item.id === 'relative-target'))
+
+  const disabled = analyzePowerShellCommand('Import-Module ExampleTools', { ...options, guardPersistentShell: false })
+  assert.equal(disabled.status, 'PASS')
+})
+
+test('hard-blocks Win32 device namespace targets', () => {
+  const result = analyzePowerShellCommand("Remove-Item -LiteralPath '\\\\?\\C:\\outside\\victim.txt'", options)
+  assert.equal(result.status, 'FAIL')
+  assert.ok(result.findings.some((item) => item.id === 'device-path'))
 })
 
 test('checks overwrite-capable cmdlets and copy destinations', () => {

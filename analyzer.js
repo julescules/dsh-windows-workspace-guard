@@ -1,6 +1,6 @@
 import path from 'node:path'
 
-export const POLICY_VERSION = '2026-08-18.3'
+export const POLICY_VERSION = '2026-08-20.4'
 
 const POWERSHELL_MUTATION_PATTERN = /\b(?:Remove-Item|Move-Item|Clear-Content|Rename-Item|Copy-Item|Set-Content|ri|rm|del|erase|rmdir|rd|mi|mv|ren|cp|copy)\b/i
 const DESTRUCTIVE_PATTERN = /\b(?:Remove-Item|Move-Item|Clear-Content|Rename-Item|ri|rm|del|erase|rmdir|rd|mi|mv|ren)\b/i
@@ -10,12 +10,19 @@ const CMD_DELETE_PATTERN = /\b(?:cmd(?:\.exe)?\s*\/c\s+)?(?:rd|rmdir|del|erase)\
 const ROBOCOPY_MIRROR_PATTERN = /\brobocopy\b[^\r\n]*(?:\/MIR|\/PURGE)\b/i
 const OPAQUE_EXECUTION_PATTERN = /\b(?:Invoke-Expression|iex|EncodedCommand|enc)\b/i
 const NESTED_SHELL_PATTERN = /\b(?:powershell|pwsh)(?:\.exe)?\b[^\r\n]*(?:-(?:Command|EncodedCommand)|\s-enc\b)/i
-const REGISTRY_MUTATION_PATTERN = /(?:\b(?:New|Set|Remove|Rename)-ItemProperty\b[^\r\n]*(?:Registry::|HK(?:LM|CU|CR|U|CC):)|\breg(?:\.exe)?\s+(?:add|delete|import|restore|load|unload|copy)\b)/i
+const REGISTRY_MUTATION_PATTERN = /(?:\b(?:New|Set|Remove|Rename|Clear|Copy|Move)-(?:Item|ItemProperty)\b[^\r\n]*(?:Registry::|HK(?:LM|CU|CR|U|CC):)|\breg(?:\.exe)?\s+(?:add|delete|import|restore|load|unload|copy)\b)/i
 const SERVICE_MUTATION_PATTERN = /(?:\b(?:New|Set|Remove|Start|Stop|Restart)-Service\b|\bsc(?:\.exe)?\s+(?:create|delete|config|start|stop|failure|sidtype|privs)\b)/i
 const SCHEDULED_TASK_MUTATION_PATTERN = /(?:\b(?:Register|Unregister|Set|Start|Stop|Disable|Enable)-ScheduledTask\b|\bschtasks(?:\.exe)?\s+\/(?:create|delete|change|run|end)\b)/i
 const ACL_MUTATION_PATTERN = /(?:\bSet-Acl\b|\btakeown(?:\.exe)?\b|\bicacls(?:\.exe)?\b[^\r\n]*\/(?:grant|deny|remove|setowner|reset|inheritance|restore)\b)/i
 const REPARSE_MUTATION_PATTERN = /(?:\bNew-Item\b[^\r\n]*-ItemType\s+(?:SymbolicLink|Junction)|\bmklink\b)/i
 const PROCESS_TERMINATION_PATTERN = /(?:\bStop-Process\b|\btaskkill(?:\.exe)?\b)/i
+const PERSISTENT_CWD_PATTERN = /(?:\b(?:Set|Push|Pop)-Location\b|(?:^|[;|&\r\n])\s*(?:cd|chdir|sl)\b)/i
+const COMMAND_SHADOWING_PATTERN = /(?:\b(?:New|Set|Remove)-Alias\b|\b(?:nal|sal|ral)\b|\bfunction\s+(?:global:|script:)?[\w:-]+\s*\{|\b(?:New|Set|Remove)-Item\b[^\r\n]*(?:Alias|Function):)/i
+const MODULE_STATE_PATTERN = /(?:\b(?:Import|Remove)-Module\b|\b(?:ipmo|rmo|Add-Type)\b)/i
+const ENVIRONMENT_STATE_PATTERN = /(?:\$env:[A-Za-z_][\w]*\s*=|\[(?:System\.)?Environment\]\s*::\s*SetEnvironmentVariable\s*\()/i
+const DETACHED_EXECUTION_PATTERN = /(?:\b(?:Start-Job|Start-ThreadJob|Start-Process|Register-ScheduledJob|Register-EngineEvent|Register-ObjectEvent|Register-WmiEvent)\b|\b(?:sajb|saps)\b)/i
+const DOT_SOURCE_PATTERN = /(?:^|[;\r\n])\s*\.\s+(?:['"]|\$|\.?[\\/]|[A-Za-z]:)/i
+const REMOTE_EXECUTION_PATTERN = /(?:\b(?:Invoke-Command|Enter-PSSession|New-PSSession|Connect-PSSession)\b|\b(?:icm|etsn|nsn|cnsn)\b)/i
 const LITERAL_PATH_PATTERN = /-LiteralPath\s+(?:'([^']*)'|"([^"]*)"|([^\s;|&]+))/gi
 const DESTINATION_PATTERN = /-Destination\s+(?:'([^']*)'|"([^"]*)"|([^\s;|&]+))/gi
 const PATH_PATTERN = /-Path\s+(?:'([^']*)'|"([^"]*)"|([^\s;|&]+))/gi
@@ -32,6 +39,12 @@ const HARD_BLOCK_IDS = new Set([
   'scheduled-task-mutation',
   'acl-mutation',
   'reparse-mutation',
+  'relative-target',
+  'command-shadowing',
+  'detached-execution',
+  'dot-source',
+  'remote-execution',
+  'device-path',
   'protected-path',
   'broad-target',
 ])
@@ -79,15 +92,21 @@ export function isInsideOrEqual(candidate, root) {
   return normalizedCandidate === normalizedRoot || normalizedCandidate.startsWith(`${normalizedRoot}\\`)
 }
 
-function validateTarget(value, cwd, roots, protectedPaths, role) {
+function validateTarget(value, cwd, roots, protectedPaths, role, requireAbsolute) {
   const findings = []
   if (!value) return [finding('empty-target', 'FAIL', `${role} target is empty.`)]
+  if (/^\\\\[?.]\\/.test(value)) {
+    findings.push(finding('device-path', 'CRITICAL', `${role} target uses a Win32 device namespace that bypasses normal path validation.`, value))
+  }
   if (/\$\(|`|\$\{|\$env:|\$HOME|^~(?:[\\/]|$)/i.test(value)) {
     findings.push(finding('dynamic-target', 'FAIL', `${role} target is dynamic and cannot be proven safe.`, value))
   }
   if (/[*?\[]/.test(value)) findings.push(finding('wildcard-target', 'FAIL', `${role} target contains a wildcard.`, value))
   if (/^(?:\.|\.\.|[\\/])$/.test(value) || isDriveOrShareRoot(value)) {
     findings.push(finding('broad-target', 'CRITICAL', `${role} target is a workspace, drive, or share root.`, value))
+  }
+  if (requireAbsolute && !/^(?:[A-Za-z]:[\\/]|\\\\[^\\]+\\[^\\]+(?:\\|$))/.test(value)) {
+    findings.push(finding('relative-target', 'CRITICAL', `${role} target must be absolute because persistent PowerShell can change its current directory.`, value))
   }
   if (findings.length > 0) return findings
 
@@ -138,6 +157,7 @@ export function analyzePowerShellCommand(command, options = {}) {
     ? options.protectedPaths.filter((value) => typeof value === 'string' && value.trim()).map((value) => normalizeWindowsPath(value, cwd))
     : []
   const allowExact = new Set(Array.isArray(options.allowExact) ? options.allowExact : [])
+  const requireAbsolute = options.requireAbsoluteMutationPaths !== false
   const findings = []
 
   if (!text.trim()) {
@@ -163,7 +183,16 @@ export function analyzePowerShellCommand(command, options = {}) {
   const processFindings = options.guardProcesses === false || !PROCESS_TERMINATION_PATTERN.test(text)
     ? []
     : [finding('process-termination', 'HIGH', 'Process termination can kill the Harness, a service, or unrelated user work.')]
-  const mutating = destructive || cmdletMutation || gitFindings.length > 0 || systemFindings.length > 0 || processFindings.length > 0 || opaqueExecution || nestedShell
+  const persistentFindings = options.guardPersistentShell === false ? [] : [
+    PERSISTENT_CWD_PATTERN.test(text) ? finding('persistent-cwd-change', 'HIGH', 'The persistent PowerShell current directory will affect later tool calls.') : undefined,
+    COMMAND_SHADOWING_PATTERN.test(text) ? finding('command-shadowing', 'CRITICAL', 'Alias or function changes can make later commands execute different code than the policy inspected.') : undefined,
+    MODULE_STATE_PATTERN.test(text) ? finding('module-state', 'HIGH', 'Module changes persist and can alter later command resolution.') : undefined,
+    ENVIRONMENT_STATE_PATTERN.test(text) ? finding('persistent-environment', 'HIGH', 'Environment changes persist across later PowerShell calls.') : undefined,
+    DETACHED_EXECUTION_PATTERN.test(text) ? finding('detached-execution', 'CRITICAL', 'Detached jobs, processes, or event actions can continue outside the inspected tool call.') : undefined,
+    DOT_SOURCE_PATTERN.test(text) ? finding('dot-source', 'CRITICAL', 'Dot-sourced scripts can persistently replace functions and aliases after this inspection.') : undefined,
+    REMOTE_EXECUTION_PATTERN.test(text) ? finding('remote-execution', 'CRITICAL', 'Remote PowerShell execution is outside the local workspace policy boundary.') : undefined,
+  ].filter(Boolean)
+  const mutating = destructive || cmdletMutation || gitFindings.length > 0 || systemFindings.length > 0 || processFindings.length > 0 || persistentFindings.length > 0 || opaqueExecution || nestedShell
 
   if (!mutating) {
     return { policyVersion: POLICY_VERSION, status: 'PASS', risk: 'LOW', mutating: false, destructive: false, hardBlock: false, allowedByExact: false, commandPreview: compactCommand(text), targets: [], findings: [] }
@@ -178,9 +207,10 @@ export function analyzePowerShellCommand(command, options = {}) {
   findings.push(...gitFindings)
   findings.push(...systemFindings)
   findings.push(...processFindings)
+  findings.push(...persistentFindings)
 
-  const targets = collectValues(LITERAL_PATH_PATTERN, text)
-  const pathTargets = collectValues(PATH_PATTERN, text)
+  const targets = cmdletMutation ? collectValues(LITERAL_PATH_PATTERN, text) : []
+  const pathTargets = cmdletMutation ? collectValues(PATH_PATTERN, text) : []
   const cmdletMutationCount = countMatches(POWERSHELL_MUTATION_PATTERN, text)
   if (cmdletMutation && targets.length < cmdletMutationCount) {
     findings.push(finding('literal-path-required', 'FAIL', 'Every mutating PowerShell cmdlet must use an explicit -LiteralPath target.'))
@@ -189,13 +219,13 @@ export function analyzePowerShellCommand(command, options = {}) {
   if (/-LiteralPath\s+(?:'[^']*'|"[^"]*"|[^\s;|&]+)\s*,/i.test(text)) {
     findings.push(finding('multiple-targets', 'FAIL', 'Comma-separated mutation targets are ambiguous; use one explicit invocation per target.'))
   }
-  for (const target of targets) findings.push(...validateTarget(target, cwd, roots, protectedPaths, 'Source'))
+  for (const target of targets) findings.push(...validateTarget(target, cwd, roots, protectedPaths, 'Source', requireAbsolute))
 
   if (/\b(?:Move-Item|Copy-Item|mi|mv|cp|copy)\b/i.test(text)) {
     const destinationCount = countMatches(/\b(?:Move-Item|Copy-Item|mi|mv|cp|copy)\b/i, text)
     const destinations = collectValues(DESTINATION_PATTERN, text)
     if (destinations.length < destinationCount) findings.push(finding('destination-required', 'FAIL', 'Every move/copy invocation must use an explicit -Destination target.'))
-    for (const destination of destinations) findings.push(...validateTarget(destination, cwd, roots, protectedPaths, 'Destination'))
+    for (const destination of destinations) findings.push(...validateTarget(destination, cwd, roots, protectedPaths, 'Destination', requireAbsolute))
     targets.push(...destinations)
   }
 

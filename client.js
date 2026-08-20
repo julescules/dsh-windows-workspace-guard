@@ -9,7 +9,7 @@ window.__ModuleLoader__.load({ id: 'dsh-windows-workspace-guard', factory: (requ
   const ARRAY_FIELDS = new Set(['toolNames', 'workspaceRoots', 'protectedPaths', 'allowExact'])
   const EDITABLE_FIELDS = [
     'enabled', 'mode', 'toolNames', 'workspaceRoots', 'protectedPaths', 'allowExact',
-    'guardGit', 'guardSystem', 'guardProcesses', 'logDecisions', 'auditPath',
+    'guardGit', 'guardSystem', 'guardProcesses', 'guardPersistentShell', 'requireAbsoluteMutationPaths', 'logDecisions', 'auditPath',
     'auditIncludeCommand', 'auditFailClosed',
   ]
   const zh = {
@@ -19,6 +19,7 @@ window.__ModuleLoader__.load({ id: 'dsh-windows-workspace-guard', factory: (requ
     workspaceRoots: '可信工作区根（每行一个）', protectedPaths: '不可变保护目录（每行一个）',
     allowExact: '精确允许的命令（每行一个）', guardGit: '检查高风险 Git 操作',
     guardSystem: '硬阻断注册表、服务、计划任务、ACL 与联接操作', guardProcesses: '检查进程终止操作',
+    guardPersistentShell: '检查持久 PowerShell 会话状态变更', requireAbsoluteMutationPaths: '文件变更必须使用绝对路径',
     logDecisions: '在控制台记录判定', auditPath: 'JSONL 审计日志路径',
     auditIncludeCommand: '在审计记录中保存脱敏命令预览', auditFailClosed: '审计写入失败时阻断命令',
     save: '保存', saving: '保存中…', reset: '全部恢复部署默认值', saved: '设置已保存并实时生效。',
@@ -31,6 +32,7 @@ window.__ModuleLoader__.load({ id: 'dsh-windows-workspace-guard', factory: (requ
     workspaceRoots: 'Trusted workspace roots (one per line)', protectedPaths: 'Immutable protected paths (one per line)',
     allowExact: 'Exact allowed commands (one per line)', guardGit: 'Inspect risky Git operations',
     guardSystem: 'Hard-block registry, service, task, ACL, and reparse mutations', guardProcesses: 'Inspect process termination',
+    guardPersistentShell: 'Inspect persistent PowerShell session state', requireAbsoluteMutationPaths: 'Require absolute paths for file mutations',
     logDecisions: 'Log decisions to the console', auditPath: 'JSONL audit log path',
     auditIncludeCommand: 'Store the redacted command preview in audit records', auditFailClosed: 'Block when audit writing fails',
     save: 'Save', saving: 'Saving…', reset: 'Reset all to deployment defaults', saved: 'Settings saved and applied live.',
@@ -55,6 +57,7 @@ window.__ModuleLoader__.load({ id: 'dsh-windows-workspace-guard', factory: (requ
       toolNames: lines(value.toolNames?.length ? value.toolNames : ['pwsh']),
       workspaceRoots: lines(value.workspaceRoots), protectedPaths: lines(value.protectedPaths), allowExact: lines(value.allowExact),
       guardGit: value.guardGit !== false, guardSystem: value.guardSystem !== false, guardProcesses: value.guardProcesses !== false,
+      guardPersistentShell: value.guardPersistentShell !== false, requireAbsoluteMutationPaths: value.requireAbsoluteMutationPaths !== false,
       logDecisions: value.logDecisions !== false, auditPath: typeof value.auditPath === 'string' ? value.auditPath : '',
       auditIncludeCommand: value.auditIncludeCommand === true, auditFailClosed: value.auditFailClosed === true,
     }
@@ -131,6 +134,8 @@ window.__ModuleLoader__.load({ id: 'dsh-windows-workspace-guard', factory: (requ
             h(Toggle, { label: t('guardGit'), checked: draft.guardGit, disabled, onChange: value => edit('guardGit', value) }),
             h(Toggle, { label: t('guardSystem'), checked: draft.guardSystem, disabled, onChange: value => edit('guardSystem', value) }),
             h(Toggle, { label: t('guardProcesses'), checked: draft.guardProcesses, disabled, onChange: value => edit('guardProcesses', value) }),
+            h(Toggle, { label: t('guardPersistentShell'), checked: draft.guardPersistentShell, disabled, onChange: value => edit('guardPersistentShell', value) }),
+            h(Toggle, { label: t('requireAbsoluteMutationPaths'), checked: draft.requireAbsoluteMutationPaths, disabled, onChange: value => edit('requireAbsoluteMutationPaths', value) }),
             h(Toggle, { label: t('logDecisions'), checked: draft.logDecisions, disabled, onChange: value => edit('logDecisions', value) }),
             h(Toggle, { label: t('auditIncludeCommand'), checked: draft.auditIncludeCommand, disabled, onChange: value => edit('auditIncludeCommand', value) }),
             h(Toggle, { label: t('auditFailClosed'), checked: draft.auditFailClosed, disabled, onChange: value => edit('auditFailClosed', value) })),

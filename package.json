@@ -1,7 +1,7 @@
 {
   "name": "dsh-windows-workspace-guard",
-  "version": "0.3.0",
-  "description": "Windows workspace, system-mutation, Git-risk, approval, settings, and audit guard for DeepSeek Harness.",
+  "version": "0.4.0",
+  "description": "Persistent PowerShell, Windows workspace, system-mutation, Git-risk, approval, settings, and audit guard for DeepSeek Harness.",
   "author": "julescules",
   "homepage": "https://github.com/julescules/dsh-windows-workspace-guard#readme",
   "repository": {
@@ -19,7 +19,8 @@
     "./analyzer": "./analyzer.js",
     "./audit": "./audit.js",
     "./config-source": "./config-source.js",
-    "./policy": "./policy.js"
+    "./policy": "./policy.js",
+    "./package.json": "./package.json"
   },
   "files": [
     "index.js",
@@ -50,6 +51,18 @@
     "react": ">=19.0.0 <20.0.0"
   },
   "peerDependenciesMeta": {
+    "@deepseek-ai/cordis": {
+      "optional": true
+    },
+    "@deepseek-ai/dsh-settings": {
+      "optional": true
+    },
+    "@deepseek-ai/dsh-tools": {
+      "optional": true
+    },
+    "@deepseek-ai/schemastery": {
+      "optional": true
+    },
     "react": {
       "optional": true
     }
