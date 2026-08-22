@@ -270,6 +270,65 @@ test('checks overwrite-capable cmdlets and copy destinations', () => {
   assert.ok(copyProtected.findings.some((item) => item.id === 'protected-path'))
 })
 
+test('validates PowerShell output cmdlets and redirection targets', () => {
+  const safe = [
+    "'ok' | Out-File -FilePath 'D:\\work\\project\\builds\\result.txt'",
+    "Get-Process | Export-Csv -LiteralPath 'D:\\work\\project\\builds\\processes.csv'",
+    "Get-ChildItem > 'D:\\work\\project\\builds\\listing.txt'",
+  ]
+  for (const command of safe) assert.equal(analyzePowerShellCommand(command, options).status, 'PASS', command)
+
+  const outside = analyzePowerShellCommand("Get-ChildItem > 'C:\\outside\\listing.txt'", options)
+  assert.equal(outside.status, 'FAIL')
+  assert.ok(outside.findings.some((item) => item.id === 'outside-workspace'))
+
+  const relative = analyzePowerShellCommand("'x' | Out-File -FilePath '.\\result.txt'", options)
+  assert.equal(relative.status, 'FAIL')
+  assert.ok(relative.findings.some((item) => item.id === 'relative-target'))
+})
+
+test('hard-blocks native shell, script-host, and download-to-file bypasses', () => {
+  const commands = [
+    ['cmd.exe /c copy D:\\work\\project\\a C:\\outside\\a', 'native-shell-escape'],
+    ['wsl.exe rm -rf /mnt/c/outside', 'native-shell-escape'],
+    ['cscript.exe unsafe.vbs', 'native-shell-escape'],
+    ["Invoke-WebRequest https://example.invalid/a -OutFile 'C:\\outside\\a'", 'download-write'],
+    ["Start-BitsTransfer -Source https://example.invalid/a -Destination 'C:\\outside\\a'", 'download-write'],
+  ]
+  for (const [command, id] of commands) {
+    const result = analyzePowerShellCommand(command, options)
+    assert.equal(result.status, 'FAIL', command)
+    assert.equal(result.hardBlock, true, command)
+    assert.ok(result.findings.some((item) => item.id === id), command)
+  }
+
+  const disabled = analyzePowerShellCommand('cmd.exe /c echo ok', { ...options, guardNativeEscapes: false })
+  assert.equal(disabled.status, 'PASS')
+})
+
+test('hard-blocks WMI/CIM mutation and NTFS hard-link creation', () => {
+  const commands = [
+    ["Invoke-CimMethod -ClassName Win32_Process -MethodName Create -Arguments @{CommandLine='calc'}", 'wmi-cim-mutation'],
+    ["New-Item -ItemType HardLink -Path 'D:\\work\\project\\link' -Target 'C:\\outside\\secret'", 'reparse-mutation'],
+    ["fsutil.exe hardlink create D:\\work\\project\\link C:\\outside\\secret", 'reparse-mutation'],
+  ]
+  for (const [command, id] of commands) {
+    const result = analyzePowerShellCommand(command, options)
+    assert.equal(result.status, 'FAIL', command)
+    assert.ok(result.findings.some((item) => item.id === id), command)
+  }
+})
+
+test('hard-blocks NTFS alternate data streams and broader System.IO writes', () => {
+  const ads = analyzePowerShellCommand("Set-Content -LiteralPath 'D:\\work\\project\\safe.txt' -Stream hidden -Value payload", options)
+  assert.equal(ads.status, 'FAIL')
+  assert.ok(ads.findings.some((item) => item.id === 'alternate-data-stream'))
+
+  const dotnet = analyzePowerShellCommand("[System.IO.File]::AppendAllText('D:\\work\\project\\safe.txt', 'x')", options)
+  assert.equal(dotnet.status, 'FAIL')
+  assert.ok(dotnet.findings.some((item) => item.id === 'dotnet-bypass'))
+})
+
 test('redacts common secrets from previews', () => {
   const result = analyzePowerShellCommand("Set-Content -LiteralPath 'D:\\work\\project\\x' -Value x; $env:API_TOKEN='super-secret'", options)
   assert.doesNotMatch(result.commandPreview, /super-secret/)

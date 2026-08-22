@@ -10,5 +10,6 @@
         guardGit: true
         guardSystem: true
         guardProcesses: true
+        guardNativeEscapes: true
         guardPersistentShell: true
         requireAbsoluteMutationPaths: true

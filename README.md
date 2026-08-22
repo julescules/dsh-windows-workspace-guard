@@ -14,7 +14,9 @@ Safety policy for DeepSeek Harness on Windows. It checks model-issued PowerShell
 - keeps destructive PowerShell targets inside trusted workspace roots;
 - makes `original/`, signing files, or any configured path immutable;
 - reviews risky Git commands such as `reset --hard`, `clean -fdx`, worktree restore, stash deletion, and force push;
-- hard-blocks registry, service, scheduled-task, ACL/ownership, junction/symlink, and nested-shell mutations;
+- hard-blocks registry, WMI/CIM, service, scheduled-task, ACL/ownership, junction/symlink/hardlink, NTFS alternate streams, and nested-shell mutations;
+- validates `Out-File`, `Tee-Object`, export cmdlets, and `>`/`>>` output targets against trusted workspace roots;
+- blocks native shell/script-host escapes and download-to-file bypasses by default;
 - reviews process termination and supports configurable guarded tool names;
 - protects the persistent `pwsh` session added in DSH `v0.1.0-rc.8`: relative mutation targets, command shadowing, dot-sourcing, detached work, remote execution, module state, environment state, and current-directory changes;
 - supports `block`, one-time `ask`, and audit-only `report` modes;
@@ -25,7 +27,7 @@ Safety policy for DeepSeek Harness on Windows. It checks model-issued PowerShell
 ## Install
 
 ```powershell
-dsh plugin --profile web add github:julescules/dsh-windows-workspace-guard#v0.4.0
+dsh plugin --profile web add github:julescules/dsh-windows-workspace-guard#v0.5.0
 dsh --profile web --dump-config
 ```
 
@@ -45,12 +47,13 @@ Restart DSH after installation.
     guardGit: true
     guardSystem: true
     guardProcesses: true
+    guardNativeEscapes: true
     guardPersistentShell: true
     requireAbsoluteMutationPaths: true
     auditPath: 'D:\projects\current-project\operation_logs\dsh-guard.audit.jsonl'
 ```
 
-On DSH `v0.1.0-rc.7` or newer, the same fields can be changed from **Settings → Plugins → Windows Workspace Guard** and apply immediately without restarting the plugin. DSH `v0.1.0-rc.8` or newer is recommended for the persistent Windows PowerShell integration.
+On DSH `v0.1.0-rc.7` or newer, the same fields can be changed from **Settings → Plugins → Windows Workspace Guard** and apply immediately without restarting the plugin. This release is validated against DSH `v0.1.1-rc.2` while retaining the persistent PowerShell contract introduced in rc.8.
 
 `requireAbsoluteMutationPaths` is enabled by default. Read-only commands may still use relative paths, but file deletion, move, copy, rename, and overwrite operations must use drive-qualified or UNC paths. This prevents an earlier persistent `Set-Location` call from changing the meaning of a later command.
 
@@ -68,11 +71,11 @@ The plugin registers `windows_workspace_guard_check`. The agent can inspect a co
 
 ## Verified
 
-- 34/34 unit, browser-contract, and adversarial tests pass;
+- 38/38 unit, browser-contract, and adversarial tests pass;
 - official `dsh.bundle.patch` package shape;
 - official keyed `settings.plugin.item` card and `settingsScope` live-config contract;
 - official `tools/pre-execute` allow/deny/ask contract;
-- real `@deepseek-ai/dsh@0.1.0-rc.8` profile install, config composition, Web Host boot-graph discovery, and served client bundle;
+- real `@deepseek-ai/dsh@0.1.1-rc.2` profile install, config composition, Web Host boot-graph discovery, and served client bundle;
 - package contains no install-time build step;
 - UTF-8 append-only audit with common secret redaction.
 
