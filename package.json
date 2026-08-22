@@ -1,6 +1,6 @@
 {
   "name": "dsh-windows-workspace-guard",
-  "version": "0.4.0",
+  "version": "0.5.0",
   "description": "Persistent PowerShell, Windows workspace, system-mutation, Git-risk, approval, settings, and audit guard for DeepSeek Harness.",
   "author": "julescules",
   "homepage": "https://github.com/julescules/dsh-windows-workspace-guard#readme",

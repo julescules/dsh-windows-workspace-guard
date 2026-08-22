@@ -1,20 +1,24 @@
 import path from 'node:path'
 
-export const POLICY_VERSION = '2026-08-20.4'
+export const POLICY_VERSION = '2026-08-22.5'
 
-const POWERSHELL_MUTATION_PATTERN = /\b(?:Remove-Item|Move-Item|Clear-Content|Rename-Item|Copy-Item|Set-Content|ri|rm|del|erase|rmdir|rd|mi|mv|ren|cp|copy)\b/i
+const POWERSHELL_MUTATION_PATTERN = /\b(?:Remove-Item|Move-Item|Clear-Content|Rename-Item|Copy-Item|Set-Content|Add-Content|Export-Csv|Export-Clixml|ri|rm|del|erase|rmdir|rd|mi|mv|ren|cp|copy)\b/i
 const DESTRUCTIVE_PATTERN = /\b(?:Remove-Item|Move-Item|Clear-Content|Rename-Item|ri|rm|del|erase|rmdir|rd|mi|mv|ren)\b/i
 const DISK_PATTERN = /\b(?:Format-Volume|Clear-Disk|Initialize-Disk|Remove-Partition|Remove-Volume|diskpart)\b/i
-const DOTNET_MUTATION_PATTERN = /\[(?:System\.)?IO\.(?:Directory|File)\]\s*::\s*(?:Delete|Move|WriteAllText|WriteAllBytes|Create)\s*\(/i
+const DOTNET_MUTATION_PATTERN = /\[(?:System\.)?IO\.(?:Directory|File)\]\s*::\s*(?:Delete|Move|Copy|Replace|WriteAllText|WriteAllLines|WriteAllBytes|AppendAllText|AppendAllLines|Create)\s*\(/i
 const CMD_DELETE_PATTERN = /\b(?:cmd(?:\.exe)?\s*\/c\s+)?(?:rd|rmdir|del|erase)\b/i
 const ROBOCOPY_MIRROR_PATTERN = /\brobocopy\b[^\r\n]*(?:\/MIR|\/PURGE)\b/i
+const NATIVE_SHELL_ESCAPE_PATTERN = /\b(?:cmd(?:\.exe)?\s*\/[ck]|wsl(?:\.exe)?|bash(?:\.exe)?|sh(?:\.exe)?|mshta(?:\.exe)?|[wc]script(?:\.exe)?|rundll32(?:\.exe)?|regsvr32(?:\.exe)?|runas(?:\.exe)?)\b/i
+const DOWNLOAD_WRITE_PATTERN = /(?:\b(?:Invoke-WebRequest|iwr|wget|curl)\b[^\r\n]*(?:-OutFile\b|-o\s)|\bStart-BitsTransfer\b|\bbitsadmin(?:\.exe)?\b|\bcertutil(?:\.exe)?\b[^\r\n]*-urlcache\b)/i
+const ALTERNATE_DATA_STREAM_PATTERN = /\b(?:Set-Content|Add-Content|Out-File|New-Item)\b[^\r\n]*-Stream\b/i
 const OPAQUE_EXECUTION_PATTERN = /\b(?:Invoke-Expression|iex|EncodedCommand|enc)\b/i
 const NESTED_SHELL_PATTERN = /\b(?:powershell|pwsh)(?:\.exe)?\b[^\r\n]*(?:-(?:Command|EncodedCommand)|\s-enc\b)/i
-const REGISTRY_MUTATION_PATTERN = /(?:\b(?:New|Set|Remove|Rename|Clear|Copy|Move)-(?:Item|ItemProperty)\b[^\r\n]*(?:Registry::|HK(?:LM|CU|CR|U|CC):)|\breg(?:\.exe)?\s+(?:add|delete|import|restore|load|unload|copy)\b)/i
+const REGISTRY_MUTATION_PATTERN = /(?:\b(?:New|Set|Remove|Rename|Clear|Copy|Move)-(?:Item|ItemProperty)\b[^\r\n]*(?:Registry::|HK(?:LM|CU|CR|U|CC):)|\breg(?:\.exe)?\s+(?:add|delete|import|restore|load|unload|copy)\b|\bsetx(?:\.exe)?\b)/i
+const WMI_CIM_MUTATION_PATTERN = /(?:\b(?:Invoke-WmiMethod|Set-WmiInstance|Remove-WmiObject|Invoke-CimMethod|New-CimInstance|Set-CimInstance|Remove-CimInstance)\b|\bwmic(?:\.exe)?\b[^\r\n]*(?:call\s+create|delete|set)\b)/i
 const SERVICE_MUTATION_PATTERN = /(?:\b(?:New|Set|Remove|Start|Stop|Restart)-Service\b|\bsc(?:\.exe)?\s+(?:create|delete|config|start|stop|failure|sidtype|privs)\b)/i
 const SCHEDULED_TASK_MUTATION_PATTERN = /(?:\b(?:Register|Unregister|Set|Start|Stop|Disable|Enable)-ScheduledTask\b|\bschtasks(?:\.exe)?\s+\/(?:create|delete|change|run|end)\b)/i
 const ACL_MUTATION_PATTERN = /(?:\bSet-Acl\b|\btakeown(?:\.exe)?\b|\bicacls(?:\.exe)?\b[^\r\n]*\/(?:grant|deny|remove|setowner|reset|inheritance|restore)\b)/i
-const REPARSE_MUTATION_PATTERN = /(?:\bNew-Item\b[^\r\n]*-ItemType\s+(?:SymbolicLink|Junction)|\bmklink\b)/i
+const REPARSE_MUTATION_PATTERN = /(?:\bNew-Item\b[^\r\n]*-ItemType\s+(?:SymbolicLink|Junction|HardLink)|\bmklink\b|\bfsutil(?:\.exe)?\s+hardlink\s+create\b)/i
 const PROCESS_TERMINATION_PATTERN = /(?:\bStop-Process\b|\btaskkill(?:\.exe)?\b)/i
 const PERSISTENT_CWD_PATTERN = /(?:\b(?:Set|Push|Pop)-Location\b|(?:^|[;|&\r\n])\s*(?:cd|chdir|sl)\b)/i
 const COMMAND_SHADOWING_PATTERN = /(?:\b(?:New|Set|Remove)-Alias\b|\b(?:nal|sal|ral)\b|\bfunction\s+(?:global:|script:)?[\w:-]+\s*\{|\b(?:New|Set|Remove)-Item\b[^\r\n]*(?:Alias|Function):)/i
@@ -26,15 +30,22 @@ const REMOTE_EXECUTION_PATTERN = /(?:\b(?:Invoke-Command|Enter-PSSession|New-PSS
 const LITERAL_PATH_PATTERN = /-LiteralPath\s+(?:'([^']*)'|"([^"]*)"|([^\s;|&]+))/gi
 const DESTINATION_PATTERN = /-Destination\s+(?:'([^']*)'|"([^"]*)"|([^\s;|&]+))/gi
 const PATH_PATTERN = /-Path\s+(?:'([^']*)'|"([^"]*)"|([^\s;|&]+))/gi
+const FILE_PATH_PATTERN = /-FilePath\s+(?:'([^']*)'|"([^"]*)"|([^\s;|&]+))/gi
+const FILE_OUTPUT_CMDLET_PATTERN = /\b(?:Out-File|Tee-Object)\b/i
+const REDIRECTION_PATTERN = /(?<![<>=])>{1,2}\s*(?:'([^']*)'|"([^"]*)"|([^\s;|&]+))/g
 
 const HARD_BLOCK_IDS = new Set([
   'disk-mutation',
   'dotnet-bypass',
   'cmd-bypass',
   'mirror-delete',
+  'native-shell-escape',
+  'download-write',
+  'alternate-data-stream',
   'opaque-execution',
   'nested-shell',
   'registry-mutation',
+  'wmi-cim-mutation',
   'service-mutation',
   'scheduled-task-mutation',
   'acl-mutation',
@@ -168,13 +179,19 @@ export function analyzePowerShellCommand(command, options = {}) {
   const dotnetMutation = DOTNET_MUTATION_PATTERN.test(text)
   const cmdMutation = CMD_DELETE_PATTERN.test(text)
   const mirrorMutation = ROBOCOPY_MIRROR_PATTERN.test(text)
+  const nativeShellEscape = options.guardNativeEscapes !== false && NATIVE_SHELL_ESCAPE_PATTERN.test(text)
+  const downloadWrite = options.guardNativeEscapes !== false && DOWNLOAD_WRITE_PATTERN.test(text)
+  const alternateDataStream = ALTERNATE_DATA_STREAM_PATTERN.test(text)
   const opaqueExecution = OPAQUE_EXECUTION_PATTERN.test(text)
   const nestedShell = NESTED_SHELL_PATTERN.test(text)
   const cmdletMutation = POWERSHELL_MUTATION_PATTERN.test(text)
+  const fileOutputMutation = FILE_OUTPUT_CMDLET_PATTERN.test(text)
+  const redirectionTargets = collectValues(REDIRECTION_PATTERN, text)
   const destructive = diskMutation || dotnetMutation || cmdMutation || mirrorMutation || DESTRUCTIVE_PATTERN.test(text)
   const gitFindings = options.guardGit === false ? [] : analyzeGit(text)
   const systemFindings = options.guardSystem === false ? [] : [
     REGISTRY_MUTATION_PATTERN.test(text) ? finding('registry-mutation', 'CRITICAL', 'Registry mutation is outside the file-workspace safety boundary.') : undefined,
+    WMI_CIM_MUTATION_PATTERN.test(text) ? finding('wmi-cim-mutation', 'CRITICAL', 'WMI or CIM mutation can create processes or change system state outside the workspace.') : undefined,
     SERVICE_MUTATION_PATTERN.test(text) ? finding('service-mutation', 'CRITICAL', 'Service mutation can persist or disrupt system-wide execution.') : undefined,
     SCHEDULED_TASK_MUTATION_PATTERN.test(text) ? finding('scheduled-task-mutation', 'CRITICAL', 'Scheduled-task mutation creates persistence outside the workspace.') : undefined,
     ACL_MUTATION_PATTERN.test(text) ? finding('acl-mutation', 'CRITICAL', 'ACL or ownership mutation can bypass workspace access controls.') : undefined,
@@ -192,7 +209,7 @@ export function analyzePowerShellCommand(command, options = {}) {
     DOT_SOURCE_PATTERN.test(text) ? finding('dot-source', 'CRITICAL', 'Dot-sourced scripts can persistently replace functions and aliases after this inspection.') : undefined,
     REMOTE_EXECUTION_PATTERN.test(text) ? finding('remote-execution', 'CRITICAL', 'Remote PowerShell execution is outside the local workspace policy boundary.') : undefined,
   ].filter(Boolean)
-  const mutating = destructive || cmdletMutation || gitFindings.length > 0 || systemFindings.length > 0 || processFindings.length > 0 || persistentFindings.length > 0 || opaqueExecution || nestedShell
+  const mutating = destructive || cmdletMutation || fileOutputMutation || redirectionTargets.length > 0 || gitFindings.length > 0 || systemFindings.length > 0 || processFindings.length > 0 || persistentFindings.length > 0 || nativeShellEscape || downloadWrite || alternateDataStream || opaqueExecution || nestedShell
 
   if (!mutating) {
     return { policyVersion: POLICY_VERSION, status: 'PASS', risk: 'LOW', mutating: false, destructive: false, hardBlock: false, allowedByExact: false, commandPreview: compactCommand(text), targets: [], findings: [] }
@@ -202,6 +219,9 @@ export function analyzePowerShellCommand(command, options = {}) {
   if (dotnetMutation) findings.push(finding('dotnet-bypass', 'CRITICAL', 'Direct System.IO mutation bypasses the PowerShell cmdlet path contract.'))
   if (cmdMutation) findings.push(finding('cmd-bypass', 'CRITICAL', 'cmd.exe deletion aliases bypass -LiteralPath validation.'))
   if (mirrorMutation) findings.push(finding('mirror-delete', 'CRITICAL', 'robocopy mirror or purge can delete destination content.'))
+  if (nativeShellEscape) findings.push(finding('native-shell-escape', 'CRITICAL', 'A native shell or Windows script host can bypass PowerShell cmdlet and workspace-target validation.'))
+  if (downloadWrite) findings.push(finding('download-write', 'CRITICAL', 'Network download-to-file commands bypass the workspace-bound file writer contract.'))
+  if (alternateDataStream) findings.push(finding('alternate-data-stream', 'CRITICAL', 'NTFS alternate data streams can hide executable or configuration payloads from ordinary file review.'))
   if (opaqueExecution) findings.push(finding('opaque-execution', 'CRITICAL', 'Encoded or dynamically evaluated PowerShell cannot be statically proven safe.'))
   if (nestedShell) findings.push(finding('nested-shell', 'CRITICAL', 'Nested PowerShell command execution hides the effective command from this policy boundary.'))
   findings.push(...gitFindings)
@@ -220,6 +240,15 @@ export function analyzePowerShellCommand(command, options = {}) {
     findings.push(finding('multiple-targets', 'FAIL', 'Comma-separated mutation targets are ambiguous; use one explicit invocation per target.'))
   }
   for (const target of targets) findings.push(...validateTarget(target, cwd, roots, protectedPaths, 'Source', requireAbsolute))
+
+  const outputTargets = fileOutputMutation ? collectValues(FILE_PATH_PATTERN, text) : []
+  if (fileOutputMutation && outputTargets.length < countMatches(FILE_OUTPUT_CMDLET_PATTERN, text)) {
+    findings.push(finding('file-output-path-required', 'FAIL', 'Every file-output cmdlet must use an explicit -FilePath target.'))
+  }
+  for (const target of [...outputTargets, ...redirectionTargets]) {
+    findings.push(...validateTarget(target, cwd, roots, protectedPaths, 'Output', requireAbsolute))
+  }
+  targets.push(...outputTargets, ...redirectionTargets)
 
   if (/\b(?:Move-Item|Copy-Item|mi|mv|cp|copy)\b/i.test(text)) {
     const destinationCount = countMatches(/\b(?:Move-Item|Copy-Item|mi|mv|cp|copy)\b/i, text)

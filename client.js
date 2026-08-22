@@ -9,7 +9,7 @@ window.__ModuleLoader__.load({ id: 'dsh-windows-workspace-guard', factory: (requ
   const ARRAY_FIELDS = new Set(['toolNames', 'workspaceRoots', 'protectedPaths', 'allowExact'])
   const EDITABLE_FIELDS = [
     'enabled', 'mode', 'toolNames', 'workspaceRoots', 'protectedPaths', 'allowExact',
-    'guardGit', 'guardSystem', 'guardProcesses', 'guardPersistentShell', 'requireAbsoluteMutationPaths', 'logDecisions', 'auditPath',
+    'guardGit', 'guardSystem', 'guardProcesses', 'guardNativeEscapes', 'guardPersistentShell', 'requireAbsoluteMutationPaths', 'logDecisions', 'auditPath',
     'auditIncludeCommand', 'auditFailClosed',
   ]
   const zh = {
@@ -18,7 +18,8 @@ window.__ModuleLoader__.load({ id: 'dsh-windows-workspace-guard', factory: (requ
     block: '阻断', ask: '请求一次批准', report: '仅记录', toolNames: '受保护工具名称（每行一个）',
     workspaceRoots: '可信工作区根（每行一个）', protectedPaths: '不可变保护目录（每行一个）',
     allowExact: '精确允许的命令（每行一个）', guardGit: '检查高风险 Git 操作',
-    guardSystem: '硬阻断注册表、服务、计划任务、ACL 与联接操作', guardProcesses: '检查进程终止操作',
+    guardSystem: '硬阻断注册表、WMI/CIM、服务、计划任务、ACL 与链接操作', guardProcesses: '检查进程终止操作',
+    guardNativeEscapes: '阻断原生 Shell、脚本宿主与下载落盘绕过',
     guardPersistentShell: '检查持久 PowerShell 会话状态变更', requireAbsoluteMutationPaths: '文件变更必须使用绝对路径',
     logDecisions: '在控制台记录判定', auditPath: 'JSONL 审计日志路径',
     auditIncludeCommand: '在审计记录中保存脱敏命令预览', auditFailClosed: '审计写入失败时阻断命令',
@@ -31,7 +32,8 @@ window.__ModuleLoader__.load({ id: 'dsh-windows-workspace-guard', factory: (requ
     block: 'Block', ask: 'Ask once', report: 'Report only', toolNames: 'Guarded tool names (one per line)',
     workspaceRoots: 'Trusted workspace roots (one per line)', protectedPaths: 'Immutable protected paths (one per line)',
     allowExact: 'Exact allowed commands (one per line)', guardGit: 'Inspect risky Git operations',
-    guardSystem: 'Hard-block registry, service, task, ACL, and reparse mutations', guardProcesses: 'Inspect process termination',
+    guardSystem: 'Hard-block registry, WMI/CIM, service, task, ACL, and link mutations', guardProcesses: 'Inspect process termination',
+    guardNativeEscapes: 'Block native shells, script hosts, and download-to-file bypasses',
     guardPersistentShell: 'Inspect persistent PowerShell session state', requireAbsoluteMutationPaths: 'Require absolute paths for file mutations',
     logDecisions: 'Log decisions to the console', auditPath: 'JSONL audit log path',
     auditIncludeCommand: 'Store the redacted command preview in audit records', auditFailClosed: 'Block when audit writing fails',
@@ -57,6 +59,7 @@ window.__ModuleLoader__.load({ id: 'dsh-windows-workspace-guard', factory: (requ
       toolNames: lines(value.toolNames?.length ? value.toolNames : ['pwsh']),
       workspaceRoots: lines(value.workspaceRoots), protectedPaths: lines(value.protectedPaths), allowExact: lines(value.allowExact),
       guardGit: value.guardGit !== false, guardSystem: value.guardSystem !== false, guardProcesses: value.guardProcesses !== false,
+      guardNativeEscapes: value.guardNativeEscapes !== false,
       guardPersistentShell: value.guardPersistentShell !== false, requireAbsoluteMutationPaths: value.requireAbsoluteMutationPaths !== false,
       logDecisions: value.logDecisions !== false, auditPath: typeof value.auditPath === 'string' ? value.auditPath : '',
       auditIncludeCommand: value.auditIncludeCommand === true, auditFailClosed: value.auditFailClosed === true,
@@ -134,6 +137,7 @@ window.__ModuleLoader__.load({ id: 'dsh-windows-workspace-guard', factory: (requ
             h(Toggle, { label: t('guardGit'), checked: draft.guardGit, disabled, onChange: value => edit('guardGit', value) }),
             h(Toggle, { label: t('guardSystem'), checked: draft.guardSystem, disabled, onChange: value => edit('guardSystem', value) }),
             h(Toggle, { label: t('guardProcesses'), checked: draft.guardProcesses, disabled, onChange: value => edit('guardProcesses', value) }),
+            h(Toggle, { label: t('guardNativeEscapes'), checked: draft.guardNativeEscapes, disabled, onChange: value => edit('guardNativeEscapes', value) }),
             h(Toggle, { label: t('guardPersistentShell'), checked: draft.guardPersistentShell, disabled, onChange: value => edit('guardPersistentShell', value) }),
             h(Toggle, { label: t('requireAbsoluteMutationPaths'), checked: draft.requireAbsoluteMutationPaths, disabled, onChange: value => edit('requireAbsoluteMutationPaths', value) }),
             h(Toggle, { label: t('logDecisions'), checked: draft.logDecisions, disabled, onChange: value => edit('logDecisions', value) }),
