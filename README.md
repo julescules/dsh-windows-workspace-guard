@@ -23,11 +23,12 @@ Safety policy for DeepSeek Harness on Windows. It checks model-issued PowerShell
 - adds a live settings card to the official DSH plugin settings page (DSH `v0.1.0-rc.7` or newer);
 - writes optional append-only JSONL audit records with redacted previews and command hashes;
 - permanently blocks disk operations, broad roots, encoded execution, `System.IO` bypasses, and protected paths.
+- checks every existing target prefix with the live filesystem and hard-blocks traversal through a junction or symbolic link.
 
 ## Install
 
 ```powershell
-dsh plugin --profile web add github:julescules/dsh-windows-workspace-guard#v0.5.0
+dsh plugin --profile web add github:julescules/dsh-windows-workspace-guard#v0.6.0
 dsh --profile web --dump-config
 ```
 
@@ -49,6 +50,7 @@ Restart DSH after installation.
     guardProcesses: true
     guardNativeEscapes: true
     guardPersistentShell: true
+    guardExistingLinks: true
     requireAbsoluteMutationPaths: true
     auditPath: 'D:\projects\current-project\operation_logs\dsh-guard.audit.jsonl'
 ```
@@ -56,6 +58,8 @@ Restart DSH after installation.
 On DSH `v0.1.0-rc.7` or newer, the same fields can be changed from **Settings → Plugins → Windows Workspace Guard** and apply immediately without restarting the plugin. This release is validated against DSH `v0.1.1-rc.2` while retaining the persistent PowerShell contract introduced in rc.8.
 
 `requireAbsoluteMutationPaths` is enabled by default. Read-only commands may still use relative paths, but file deletion, move, copy, rename, and overwrite operations must use drive-qualified or UNC paths. This prevents an earlier persistent `Set-Location` call from changing the meaning of a later command.
+
+`guardExistingLinks` is also enabled by default. Before a mutation is allowed, the plugin calls `lstat` on each existing lexical path prefix. Existing junctions/symlinks and inspection failures are hard blocks, so a trusted-looking path cannot silently resolve outside the approved workspace.
 
 | Result | `block` | `ask` | `report` |
 |---|---|---|---|
@@ -71,7 +75,7 @@ The plugin registers `windows_workspace_guard_check`. The agent can inspect a co
 
 ## Verified
 
-- 38/38 unit, browser-contract, and adversarial tests pass;
+- 44/44 unit, browser-contract, live-path, and adversarial tests pass;
 - official `dsh.bundle.patch` package shape;
 - official keyed `settings.plugin.item` card and `settingsScope` live-config contract;
 - official `tools/pre-execute` allow/deny/ask contract;
@@ -88,7 +92,7 @@ npm pack --dry-run
 
 - Static inspection is not a complete PowerShell parser or OS sandbox.
 - `pwsh` is intercepted by default; add other PowerShell tool names in `toolNames`.
-- Existing junction/symlink targets are not resolved against the live filesystem; creation is hard-blocked.
+- A filesystem object can still change between inspection and execution (TOCTOU); keep workspace permissions narrow.
 - The plugin cannot introspect the live PTY current directory, so absolute mutation paths are the default safety boundary.
 - DeepSeek Harness is in developer preview; pin a reviewed release or commit.
 

@@ -23,11 +23,12 @@
 - 在官方 DSH 插件设置页提供实时设置卡片（需要 DSH `v0.1.0-rc.7` 或更新版本）；
 - 可写入追加式 JSONL 审计，命令预览会脱敏并保存 SHA-256；
 - 磁盘操作、盘符根目录、编码命令、`System.IO` 绕过和保护目录始终强制阻断。
+- 执行变更前逐级检查目标的既有路径；经过 junction 或符号链接时强制阻断。
 
 ## 安装
 
 ```powershell
-dsh plugin --profile web add github:julescules/dsh-windows-workspace-guard#v0.5.0
+dsh plugin --profile web add github:julescules/dsh-windows-workspace-guard#v0.6.0
 dsh --profile web --dump-config
 ```
 
@@ -49,6 +50,7 @@ dsh --profile web --dump-config
     guardProcesses: true
     guardNativeEscapes: true
     guardPersistentShell: true
+    guardExistingLinks: true
     requireAbsoluteMutationPaths: true
     auditPath: 'D:\projects\current-project\operation_logs\dsh-guard.audit.jsonl'
 ```
@@ -56,6 +58,8 @@ dsh --profile web --dump-config
 在 DSH `v0.1.0-rc.7` 或更新版本中，也可以从“设置 → 插件 → Windows 工作区防护”修改这些字段，保存后立即生效，不需要重启插件。本版本已针对 DSH `v0.1.1-rc.2` 验证，并保留 rc.8 引入的持久 PowerShell 契约。
 
 `requireAbsoluteMutationPaths` 默认启用。只读命令仍可使用相对路径，但删除、移动、复制、重命名和覆盖文件时必须使用带盘符的绝对路径或 UNC 路径，防止之前的持久 `Set-Location` 改变后续命令的真实目标。
+
+`guardExistingLinks` 也默认启用。插件会在放行变更前对每一级已存在的词法路径调用 `lstat`；发现 junction、符号链接或无法完成检查时均强制阻断，避免看似位于工作区内的路径实际解析到外部。
 
 | 检查结果 | `block` | `ask` | `report` |
 |---|---|---|---|
@@ -71,7 +75,7 @@ dsh --profile web --dump-config
 
 ## 已验证
 
-- 38/38 单元、浏览器接口及对抗测试通过；
+- 44/44 单元、浏览器接口、实时路径及对抗测试通过；
 - 使用官方 `dsh.bundle.patch` 插件结构；
 - 使用官方带 key 的 `settings.plugin.item` 设置卡及 `settingsScope` 实时配置协议；
 - 使用官方 `tools/pre-execute` allow/deny/ask 协议；
@@ -88,7 +92,7 @@ npm pack --dry-run
 
 - 静态检查不能代替完整 PowerShell 解析器或操作系统沙箱；
 - 默认拦截 `pwsh`；可在 `toolNames` 中加入其他 PowerShell 工具名称；
-- 目前不会在运行时解析既有 junction/symlink，但会强制阻断创建操作；
+- 文件系统对象仍可能在检查与执行之间被替换（TOCTOU），工作区权限应保持最小化；
 - 插件无法直接读取 PTY 的实时当前目录，因此默认以“变更操作必须使用绝对路径”作为安全边界；
 - DeepSeek Harness 仍处于开发预览阶段，建议固定已审核的版本或提交。
 
