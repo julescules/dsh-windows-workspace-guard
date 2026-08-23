@@ -1,6 +1,6 @@
 import path from 'node:path'
 
-export const POLICY_VERSION = '2026-08-22.5'
+export const POLICY_VERSION = '2026-08-24.6'
 
 const POWERSHELL_MUTATION_PATTERN = /\b(?:Remove-Item|Move-Item|Clear-Content|Rename-Item|Copy-Item|Set-Content|Add-Content|Export-Csv|Export-Clixml|ri|rm|del|erase|rmdir|rd|mi|mv|ren|cp|copy)\b/i
 const DESTRUCTIVE_PATTERN = /\b(?:Remove-Item|Move-Item|Clear-Content|Rename-Item|ri|rm|del|erase|rmdir|rd|mi|mv|ren)\b/i
@@ -156,6 +156,21 @@ function analyzeGit(command) {
 function maxRisk(findings) {
   const order = { LOW: 0, MEDIUM: 1, HIGH: 2, FAIL: 3, CRITICAL: 4 }
   return findings.reduce((risk, item) => order[item.severity] > order[risk] ? item.severity : risk, 'LOW')
+}
+
+export function addAnalysisFindings(result, additions) {
+  if (!Array.isArray(additions) || additions.length === 0) return result
+  const findings = [...new Map([...result.findings, ...additions].map((item) => [`${item.id}\0${item.evidence}`, item])).values()]
+  const hardBlock = findings.some((item) => item.hardBlock)
+  const status = findings.length === 0 ? 'PASS' : hardBlock || findings.some((item) => item.severity === 'FAIL') ? 'FAIL' : 'REVIEW'
+  return {
+    ...result,
+    status,
+    risk: maxRisk(findings),
+    hardBlock,
+    allowedByExact: result.allowedByExact && !hardBlock,
+    findings,
+  }
 }
 
 export function analyzePowerShellCommand(command, options = {}) {

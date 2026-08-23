@@ -5,6 +5,7 @@ import { analyzePowerShellCommand, formatAnalysis } from './analyzer.js'
 import { appendAuditRecord, createAuditRecord } from './audit.js'
 import { createConfigSource, guardedToolNames } from './config-source.js'
 import { decide, normalizeMode } from './policy.js'
+import { guardAnalysisTargets } from './path-guard.js'
 
 export const name = 'dsh-windows-workspace-guard'
 export const inject = ['tools', 'settings']
@@ -22,6 +23,7 @@ export const Config = Schema.object({
   guardSystem: Schema.boolean().default(true),
   guardProcesses: Schema.boolean().default(true),
   guardNativeEscapes: Schema.boolean().default(true),
+  guardExistingLinks: Schema.boolean().default(true),
   guardPersistentShell: Schema.boolean().default(true),
   requireAbsoluteMutationPaths: Schema.boolean().default(true),
   logDecisions: Schema.boolean().default(true),
@@ -71,9 +73,9 @@ function outputSchema() {
   }
 }
 
-function analyze(command, cwd, config) {
+async function analyze(command, cwd, config) {
   const roots = config.workspaceRoots.length > 0 ? config.workspaceRoots : [cwd]
-  return analyzePowerShellCommand(command, {
+  const result = analyzePowerShellCommand(command, {
     cwd,
     workspaceRoots: roots,
     protectedPaths: config.protectedPaths,
@@ -85,6 +87,7 @@ function analyze(command, cwd, config) {
     guardPersistentShell: config.guardPersistentShell,
     requireAbsoluteMutationPaths: config.requireAbsoluteMutationPaths,
   })
+  return guardAnalysisTargets(result, { cwd, enabled: config.guardExistingLinks })
 }
 
 function decisionReason(result) {
@@ -104,7 +107,7 @@ export function apply(ctx, config) {
     if (!active.enabled || !guardedToolNames(active).has(String(exec.name).toLowerCase())) return next()
     const command = typeof exec.arguments?.command === 'string' ? exec.arguments.command : ''
     const cwd = sessionCwd(exec)
-    const result = analyze(command, cwd, active)
+    const result = await analyze(command, cwd, active)
     const action = decide(result, normalizeMode(active.mode, active.reportOnly))
 
     if (active.logDecisions && result.mutating) {
@@ -147,7 +150,7 @@ export function apply(ctx, config) {
     async execute(args, exec) {
       const active = source.get()
       const cwd = args.cwd || sessionCwd(exec)
-      return analyze(args.command, cwd, active)
+      return await analyze(args.command, cwd, active)
     },
   }))
 }

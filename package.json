@@ -1,6 +1,6 @@
 {
   "name": "dsh-windows-workspace-guard",
-  "version": "0.5.0",
+  "version": "0.6.0",
   "description": "Persistent PowerShell, Windows workspace, system-mutation, Git-risk, approval, settings, and audit guard for DeepSeek Harness.",
   "author": "julescules",
   "homepage": "https://github.com/julescules/dsh-windows-workspace-guard#readme",
@@ -20,6 +20,7 @@
     "./audit": "./audit.js",
     "./config-source": "./config-source.js",
     "./policy": "./policy.js",
+    "./path-guard": "./path-guard.js",
     "./package.json": "./package.json"
   },
   "files": [
@@ -29,6 +30,7 @@
     "audit.js",
     "config-source.js",
     "policy.js",
+    "path-guard.js",
     "cordis.patch.yml",
     "README.md",
     "README.zh.md",
@@ -37,7 +39,7 @@
   ],
   "scripts": {
     "test": "node --test",
-    "check": "node --check index.js && node --check client.js && node --check analyzer.js && node --check audit.js && node --check config-source.js && node --check policy.js && npm test",
+    "check": "node --check index.js && node --check client.js && node --check analyzer.js && node --check audit.js && node --check config-source.js && node --check policy.js && node --check path-guard.js && npm test",
     "pack:dry": "npm pack --dry-run"
   },
   "engines": {
@@ -45,8 +47,8 @@
   },
   "peerDependencies": {
     "@deepseek-ai/cordis": "^4.0.1",
-    "@deepseek-ai/dsh-settings": ">=0.0.1-rc.1 <0.1.0",
-    "@deepseek-ai/dsh-tools": "^0.0.1-rc.1",
+    "@deepseek-ai/dsh-settings": "^0.0.1-rc.1 || ^0.1.1-rc.1",
+    "@deepseek-ai/dsh-tools": "^0.0.1-rc.1 || ^0.1.1-rc.1",
     "@deepseek-ai/schemastery": "^3.18.1",
     "react": ">=19.0.0 <20.0.0"
   },

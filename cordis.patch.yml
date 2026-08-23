@@ -11,5 +11,6 @@
         guardSystem: true
         guardProcesses: true
         guardNativeEscapes: true
+        guardExistingLinks: true
         guardPersistentShell: true
         requireAbsoluteMutationPaths: true
