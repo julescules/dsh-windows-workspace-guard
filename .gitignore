@@ -3,6 +3,7 @@ builds/
 operation_logs/
 RESEARCH.md
 coverage/
+test_outputs/
 .npmrc
 *.log
 *.tgz
