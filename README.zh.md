@@ -1,101 +1,132 @@
-# dsh-windows-workspace-guard
+# DeepSeek Harness Windows Workspace Guard
 
 中文 | [English](README.md)
 
 > [!IMPORTANT]
-> 非官方社区插件，由社区成员独立开发和维护，未经 DeepSeek 官方审核或背书。
+> 非官方社区插件，由社区独立开发与维护，未经 DeepSeek 审核或背书。
 
-这是一个面向 Windows 的 DeepSeek Harness 安全插件。它会在执行前检查 Agent 发出的 PowerShell 命令，保护工作区、原始文件、持久 Shell 状态、Windows 系统状态、进程和 Git 恢复路径。
+在 Windows Agent 误删原始文件、越界写盘、破坏 Git 恢复路径、读取凭据或改变系统状态之前阻止它。PowerShell 调用在分派前会得到清晰的 **PASS**、**ASK** 或 **HARD BLOCK**。
 
-![允许、审批和强制阻断三种策略结果](docs/demo.svg)
+![合成终端示例：凭据阻断与只读 Doctor](docs/demo.svg)
 
-## 能做什么
-
-- 删除、移动和覆盖目标必须位于可信工作区内；
-- 可将 `original/`、签名文件或任意目录设为不可修改；
-- 检查 `git reset --hard`、`git clean -fdx`、工作树还原、删除 stash、强推等高风险操作；
-- 强制阻断注册表、WMI/CIM、服务、计划任务、ACL/所有权、junction/symlink/hardlink、NTFS 备用数据流和嵌套 PowerShell 变更；
-- 检查 `Out-File`、`Tee-Object`、导出命令以及 `>`/`>>` 的输出目标是否位于可信工作区；
-- 默认阻断原生 Shell／脚本宿主逃逸和下载落盘绕过；
-- 检查终止进程操作，并可配置需要拦截的工具名称；
-- 适配 DSH `v0.1.0-rc.8` 新增的持久 `pwsh`：防护相对变更路径、命令遮蔽、dot-source、脱离式任务、远程执行、模块、环境变量和当前目录状态；
-- 支持直接阻断、单次审批、只记录不阻断三种模式；
-- 在官方 DSH 插件设置页提供实时设置卡片（需要 DSH `v0.1.0-rc.7` 或更新版本）；
-- 可写入追加式 JSONL 审计，命令预览会脱敏并保存 SHA-256；
-- 磁盘操作、盘符根目录、编码命令、`System.IO` 绕过和保护目录始终强制阻断。
-- 执行变更前逐级检查目标的既有路径；经过 junction 或符号链接时强制阻断。
-
-## 安装
+## 30 秒开始
 
 ```powershell
-dsh plugin --profile web add github:julescules/dsh-windows-workspace-guard#v0.6.0
+dsh plugin --profile web add github:julescules/dsh-windows-workspace-guard#v0.7.0
 dsh --profile web --dump-config
+dsh --profile web
 ```
 
-安装后重新启动 DSH。
+重启 DSH，然后直接说：
 
-## 推荐配置
+```text
+先运行 windows_workspace_guard_doctor，再用 windows_workspace_guard_check
+检查下面的命令，但不要执行：
+Get-Content -LiteralPath $env:DSH_HOME\.credentials.yaml
+```
+
+## v0.7.0 的三个重点
+
+### 单调强制阻断
+
+静态不可覆盖规则同时注册到官方同步 `ctx.tools.guard()`。即使另一个可重排的 `tools/pre-execute` 监听器短路 waterfall，这些规则仍保持拒绝。没有该 API 的旧 Harness 版本继续使用 pre-execute 防护。
+
+既有 junction/symlink 检查需要异步访问文件系统，因此仍位于 `tools/pre-execute`，不会冒充同步 guard 能力。
+
+### 凭据与敏感数据边界
+
+默认 `guardSensitiveData: true`，在受保护的 `pwsh(command)` 边界阻断显式读取或复制：
+
+- `$DSH_HOME\.credentials.yaml` 和 `.env` 文件；
+- 用户 SSH、AWS、Azure、Git、npm、GitHub CLI、NuGet 凭据位置；
+- 用户配置的 `sensitivePaths`；
+- 敏感环境变量和完整 `Env:` 枚举；
+- 同一命令内将显式敏感来源与网络外传工具组合。
+
+这是保守的 PowerShell 命令门禁，不是通用 DLP。它不会检查任意原生进程内存、已经运行的进程，也不会自动保护 `toolNames` 外的工具。
+
+### 只读 Windows Doctor
+
+`windows_workspace_guard_doctor` 只报告事实，不修改 ACL 或配置：
+
+- Host 是否提供 `ctx.tools.guard()`；
+- DSH home、工作区根和保护路径状态；
+- 配置根目录的链接元数据；
+- 审计目录是否可写与有上限的运行时重复副本检查；
+- Windows 凭据文件 ACL 元数据，不打开凭据内容。
+
+## 三种判定
+
+| 结果 | 含义 |
+|---|---|
+| PASS | 当前策略没有匹配到风险。 |
+| ASK | 在 `mode: ask` 下，需要 Host 批准一次的可审查操作。 |
+| HARD BLOCK | 磁盘/系统变更、策略绕过、不可变路径、链接穿越或敏感数据访问不能靠批准放行。 |
+
+`windows_workspace_guard_check` 是只读 dry-run：返回机器可读 finding，不执行命令。
+
+## 主要设置
+
+DSH Web 设置卡可以实时修改：
 
 ```yaml
-- id: windows-workspace-guard
-  name: dsh-windows-workspace-guard
-  config:
-    mode: ask
-    workspaceRoots:
-      - 'D:\projects\current-project'
-    protectedPaths:
-      - 'D:\projects\current-project\original'
-    guardGit: true
-    guardSystem: true
-    guardProcesses: true
-    guardNativeEscapes: true
-    guardPersistentShell: true
-    guardExistingLinks: true
-    requireAbsoluteMutationPaths: true
-    auditPath: 'D:\projects\current-project\operation_logs\dsh-guard.audit.jsonl'
+enabled: true
+mode: block               # block | ask | report
+toolNames: [pwsh]
+workspaceRoots: []        # 空数组表示当前 session cwd
+protectedPaths: []
+guardExistingLinks: true
+guardSensitiveData: true
+sensitivePaths: []
+auditPath: ''             # 可选追加式 JSONL
+auditIncludeCommand: false
+auditFailClosed: false
 ```
 
-在 DSH `v0.1.0-rc.7` 或更新版本中，也可以从“设置 → 插件 → Windows 工作区防护”修改这些字段，保存后立即生效，不需要重启插件。本版本已针对 DSH `v0.1.1-rc.2` 验证，并保留 rc.8 引入的持久 PowerShell 契约。
+配置审计路径后，实际分派的写入发生在 Host 批准和单调 guard 之后；被拒绝的调用在最终结果产生后记录。默认只保存哈希与脱敏预览。
 
-`requireAbsoluteMutationPaths` 默认启用。只读命令仍可使用相对路径，但删除、移动、复制、重命名和覆盖文件时必须使用带盘符的绝对路径或 UNC 路径，防止之前的持久 `Set-Location` 改变后续命令的真实目标。
+## DSH 集成
 
-`guardExistingLinks` 也默认启用。插件会在放行变更前对每一级已存在的词法路径调用 `lstat`；发现 junction、符号链接或无法完成检查时均强制阻断，避免看似位于工作区内的路径实际解析到外部。
+插件不修改 Harness 核心，使用官方 `dsh.bundle.patch`、`tools/pre-execute`、`ctx.tools.guard()`、`tools/execute`、`tools/result`、settings 和 typed-tool 接口。
 
-| 检查结果 | `block` | `ask` | `report` |
-|---|---|---|---|
-| 安全 | 放行 | 放行 | 放行 |
-| 需要复核 | 阻断 | 请求单次批准 | 放行并记录 |
-| 强制阻断 | 阻断 | 阻断 | 阻断 |
+## 升级、禁用、卸载
 
-强制阻断不能被 `allowExact` 或 `report` 模式绕过。
+```powershell
+dsh plugin --profile web add github:julescules/dsh-windows-workspace-guard#v0.7.0
+dsh plugin --profile web list
+dsh plugin --help
+```
 
-## 执行前自检
+以当前版本 `dsh plugin --help` 显示的禁用/删除命令为准，然后重启 DSH。Harness 仍处于开发预览，Profile 子命令仍可能变化。
 
-插件注册了 `windows_workspace_guard_check`。Agent 可以先检查命令，获得稳定的 `PASS`、`REVIEW` 或 `FAIL` JSON，而不会执行命令。
+## 排错、权限与数据
 
-## 已验证
+- 设置卡不显示：运行 `dsh --profile web --dump-config`，确认出现 `windows-workspace-guard`，再重启 Web。
+- 安全命令误判：先运行 dry-run，提交 finding ID 和脱敏命令/路径。
+- 插件本身不发起网络请求。Doctor 只读文件系统/ACL 元数据，不读取凭据值。
+- 只有配置 `auditPath` 才会创建审计文件。
+- `workspaceRoots` 与 `sensitivePaths` 应使用绝对、尽量窄的路径。
 
-- 44/44 单元、浏览器接口、实时路径及对抗测试通过；
-- 使用官方 `dsh.bundle.patch` 插件结构；
-- 使用官方带 key 的 `settings.plugin.item` 设置卡及 `settingsScope` 实时配置协议；
-- 使用官方 `tools/pre-execute` allow/deny/ask 协议；
-- 已通过真实 `@deepseek-ai/dsh@0.1.1-rc.2` Profile 安装、配置组合、Web Host 启动图发现及客户端 bundle 服务验证；
-- 安装时不需要运行构建脚本；
-- UTF-8 追加式审计及常见密钥脱敏。
+## 验证
+
+[![CI](https://github.com/julescules/dsh-windows-workspace-guard/actions/workflows/ci.yml/badge.svg)](https://github.com/julescules/dsh-windows-workspace-guard/actions/workflows/ci.yml)
 
 ```powershell
 npm run check
 npm pack --dry-run
 ```
 
-## 已知限制
+## 边界
 
-- 静态检查不能代替完整 PowerShell 解析器或操作系统沙箱；
-- 默认拦截 `pwsh`；可在 `toolNames` 中加入其他 PowerShell 工具名称；
-- 文件系统对象仍可能在检查与执行之间被替换（TOCTOU），工作区权限应保持最小化；
-- 插件无法直接读取 PTY 的实时当前目录，因此默认以“变更操作必须使用绝对路径”作为安全边界；
-- DeepSeek Harness 仍处于开发预览阶段，建议固定已审核的版本或提交。
+- 静态策略不等于操作系统沙箱。
+- 链接检查到执行之间仍有文件系统 TOCTOU 窗口。
+- `toolNames` 外的工具需要独立策略。
+- ACL 警告只是审查证据，不会自动修复权限。
 
-## 许可证
+遇到误报或漏报，请在[官方社区插件帖](https://github.com/deepseek-ai/deepseek-harness/discussions/2429)提供 Windows、PowerShell、DSH 版本、脱敏命令、期望 PASS/ASK/BLOCK 和脱敏 Doctor 输出。
+
+贡献与安全报告见 [CONTRIBUTING.md](CONTRIBUTING.md) 和 [SECURITY.md](SECURITY.md)。
+
+## 许可
 
 [MIT](LICENSE)

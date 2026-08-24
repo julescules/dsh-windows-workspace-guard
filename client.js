@@ -6,10 +6,10 @@ window.__ModuleLoader__.load({ id: 'dsh-windows-workspace-guard', factory: (requ
 
   const NAMESPACE = 'windows-workspace-guard'
   const LOCALE = 'settings.windowsWorkspaceGuard'
-  const ARRAY_FIELDS = new Set(['toolNames', 'workspaceRoots', 'protectedPaths', 'allowExact'])
+  const ARRAY_FIELDS = new Set(['toolNames', 'workspaceRoots', 'protectedPaths', 'allowExact', 'sensitivePaths'])
   const EDITABLE_FIELDS = [
     'enabled', 'mode', 'toolNames', 'workspaceRoots', 'protectedPaths', 'allowExact',
-    'guardGit', 'guardSystem', 'guardProcesses', 'guardNativeEscapes', 'guardExistingLinks', 'guardPersistentShell', 'requireAbsoluteMutationPaths', 'logDecisions', 'auditPath',
+    'guardGit', 'guardSystem', 'guardProcesses', 'guardNativeEscapes', 'guardExistingLinks', 'guardSensitiveData', 'sensitivePaths', 'guardPersistentShell', 'requireAbsoluteMutationPaths', 'logDecisions', 'auditPath',
     'auditIncludeCommand', 'auditFailClosed',
   ]
   const zh = {
@@ -21,6 +21,7 @@ window.__ModuleLoader__.load({ id: 'dsh-windows-workspace-guard', factory: (requ
     guardSystem: '硬阻断注册表、WMI/CIM、服务、计划任务、ACL 与链接操作', guardProcesses: '检查进程终止操作',
     guardNativeEscapes: '阻断原生 Shell、脚本宿主与下载落盘绕过',
     guardExistingLinks: '阻断变更目标经过既有 junction/symlink',
+    guardSensitiveData: '阻断凭据文件、敏感环境变量读取与外传', sensitivePaths: '额外敏感文件或目录（每行一个）',
     guardPersistentShell: '检查持久 PowerShell 会话状态变更', requireAbsoluteMutationPaths: '文件变更必须使用绝对路径',
     logDecisions: '在控制台记录判定', auditPath: 'JSONL 审计日志路径',
     auditIncludeCommand: '在审计记录中保存脱敏命令预览', auditFailClosed: '审计写入失败时阻断命令',
@@ -36,6 +37,7 @@ window.__ModuleLoader__.load({ id: 'dsh-windows-workspace-guard', factory: (requ
     guardSystem: 'Hard-block registry, WMI/CIM, service, task, ACL, and link mutations', guardProcesses: 'Inspect process termination',
     guardNativeEscapes: 'Block native shells, script hosts, and download-to-file bypasses',
     guardExistingLinks: 'Block mutation targets that traverse existing junctions/symlinks',
+    guardSensitiveData: 'Block credential-file and sensitive-environment reads or exfiltration', sensitivePaths: 'Additional sensitive files or directories (one per line)',
     guardPersistentShell: 'Inspect persistent PowerShell session state', requireAbsoluteMutationPaths: 'Require absolute paths for file mutations',
     logDecisions: 'Log decisions to the console', auditPath: 'JSONL audit log path',
     auditIncludeCommand: 'Store the redacted command preview in audit records', auditFailClosed: 'Block when audit writing fails',
@@ -63,6 +65,8 @@ window.__ModuleLoader__.load({ id: 'dsh-windows-workspace-guard', factory: (requ
       guardGit: value.guardGit !== false, guardSystem: value.guardSystem !== false, guardProcesses: value.guardProcesses !== false,
       guardNativeEscapes: value.guardNativeEscapes !== false,
       guardExistingLinks: value.guardExistingLinks !== false,
+      guardSensitiveData: value.guardSensitiveData !== false,
+      sensitivePaths: lines(value.sensitivePaths),
       guardPersistentShell: value.guardPersistentShell !== false, requireAbsoluteMutationPaths: value.requireAbsoluteMutationPaths !== false,
       logDecisions: value.logDecisions !== false, auditPath: typeof value.auditPath === 'string' ? value.auditPath : '',
       auditIncludeCommand: value.auditIncludeCommand === true, auditFailClosed: value.auditFailClosed === true,
@@ -142,6 +146,7 @@ window.__ModuleLoader__.load({ id: 'dsh-windows-workspace-guard', factory: (requ
             h(Toggle, { label: t('guardProcesses'), checked: draft.guardProcesses, disabled, onChange: value => edit('guardProcesses', value) }),
             h(Toggle, { label: t('guardNativeEscapes'), checked: draft.guardNativeEscapes, disabled, onChange: value => edit('guardNativeEscapes', value) }),
             h(Toggle, { label: t('guardExistingLinks'), checked: draft.guardExistingLinks, disabled, onChange: value => edit('guardExistingLinks', value) }),
+            h(Toggle, { label: t('guardSensitiveData'), checked: draft.guardSensitiveData, disabled, onChange: value => edit('guardSensitiveData', value) }),
             h(Toggle, { label: t('guardPersistentShell'), checked: draft.guardPersistentShell, disabled, onChange: value => edit('guardPersistentShell', value) }),
             h(Toggle, { label: t('requireAbsoluteMutationPaths'), checked: draft.requireAbsoluteMutationPaths, disabled, onChange: value => edit('requireAbsoluteMutationPaths', value) }),
             h(Toggle, { label: t('logDecisions'), checked: draft.logDecisions, disabled, onChange: value => edit('logDecisions', value) }),
@@ -152,7 +157,7 @@ window.__ModuleLoader__.load({ id: 'dsh-windows-workspace-guard', factory: (requ
               h('option', { value: 'block' }, t('block')), h('option', { value: 'ask' }, t('ask')), h('option', { value: 'report' }, t('report')))),
             h(Field, { label: t('auditPath') }, h('input', { style: input, type: 'text', disabled, value: draft.auditPath, onChange: event => edit('auditPath', event.target.value) })),
             textArea('toolNames', t('toolNames'), 2))),
-        textArea('workspaceRoots', t('workspaceRoots')), textArea('protectedPaths', t('protectedPaths')), textArea('allowExact', t('allowExact'), 4),
+        textArea('workspaceRoots', t('workspaceRoots')), textArea('protectedPaths', t('protectedPaths')), textArea('sensitivePaths', t('sensitivePaths')), textArea('allowExact', t('allowExact'), 4),
         message ? h('p', { role: 'status', style: { margin: 0, fontSize: 13 } }, message) : null,
         h('div', { style: { display: 'flex', justifyContent: 'flex-end', gap: 8 } },
           h('button', { type: 'button', style: button, disabled, onClick: reset }, t('reset')),
