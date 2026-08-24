@@ -5,9 +5,10 @@ import os from 'node:os'
 import path from 'node:path'
 import { fileURLToPath } from 'node:url'
 import { promisify } from 'node:util'
+import { coverageFacts } from './tool-adapters.js'
 
 const execFile = promisify(execFileCallback)
-export const DOCTOR_SCHEMA_VERSION = 'windows-workspace-guard-doctor/v1'
+export const DOCTOR_SCHEMA_VERSION = 'windows-workspace-guard-doctor/v2'
 
 function fact(id, level, summary, evidence = '') {
   return { id, level, summary, evidence }
@@ -213,6 +214,16 @@ export async function runWindowsGuardDoctor(options = {}) {
     platform === 'win32' ? 'Running on the intended Windows platform.' : 'This plugin is designed for Windows; platform-specific checks are limited.',
     `${platform} ${osRelease}`,
   ))
+  for (const coverage of coverageFacts(config)) {
+    facts.push(fact(
+      `tool-coverage-${coverage.toolName.replace(/[^a-z0-9_-]+/g, '-')}`,
+      coverage.covered ? 'PASS' : 'WARN',
+      coverage.covered
+        ? `Configured tool has a verified ${coverage.adapter} argument adapter.`
+        : 'Configured tool has no verified argument adapter and will fail closed instead of claiming protection.',
+      coverage.toolName,
+    ))
+  }
   const build = Number(osRelease.split('.')[2] ?? 0)
   if (platform === 'win32' && build === 26200) {
     facts.push(fact(

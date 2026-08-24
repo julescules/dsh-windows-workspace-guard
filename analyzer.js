@@ -1,7 +1,7 @@
 import path from 'node:path'
 import { analyzeSensitiveCommand } from './sensitive.js'
 
-export const POLICY_VERSION = '2026-08-24.7'
+export const POLICY_VERSION = '2026-08-24.8'
 
 const POWERSHELL_MUTATION_PATTERN = /\b(?:Remove-Item|Move-Item|Clear-Content|Rename-Item|Copy-Item|Set-Content|Add-Content|Export-Csv|Export-Clixml|ri|rm|del|erase|rmdir|rd|mi|mv|ren|cp|copy)\b/i
 const DESTRUCTIVE_PATTERN = /\b(?:Remove-Item|Move-Item|Clear-Content|Rename-Item|ri|rm|del|erase|rmdir|rd|mi|mv|ren)\b/i
@@ -36,6 +36,16 @@ const FILE_OUTPUT_CMDLET_PATTERN = /\b(?:Out-File|Tee-Object)\b/i
 const REDIRECTION_PATTERN = /(?<![<>=])>{1,2}\s*(?:'([^']*)'|"([^"]*)"|([^\s;|&]+))/g
 
 const HARD_BLOCK_IDS = new Set([
+  'outside-workspace',
+  'missing-workspace-root',
+  'empty-target',
+  'dynamic-target',
+  'wildcard-target',
+  'literal-path-required',
+  'path-expansion',
+  'multiple-targets',
+  'file-output-path-required',
+  'destination-required',
   'disk-mutation',
   'dotnet-bypass',
   'cmd-bypass',

@@ -15,6 +15,6 @@ test('switches from startup config to the live settings source', () => {
 })
 
 test('normalizes configurable intercepted tool names', () => {
-  assert.deepEqual([...guardedToolNames({})], ['pwsh'])
+  assert.deepEqual([...guardedToolNames({})], ['pwsh', 'str_replace_editor'])
   assert.deepEqual([...guardedToolNames({ toolNames: [' PwSh ', 'powershell', 'PWSh', ''] })], ['pwsh', 'powershell'])
 })

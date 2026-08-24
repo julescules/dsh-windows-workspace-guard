@@ -1,5 +1,5 @@
-import { analyzePowerShellCommand } from './analyzer.js'
 import { guardedToolNames } from './config-source.js'
+import { analyzeToolExecution, commandForExecution } from './tool-adapters.js'
 
 export function executionCwd(exec, fallback = process.cwd()) {
   return exec?.agent?.session?.header?.cwd
@@ -10,7 +10,7 @@ export function executionCwd(exec, fallback = process.cwd()) {
 }
 
 export function executionCommand(exec) {
-  return typeof exec?.arguments?.command === 'string' ? exec.arguments.command : ''
+  return commandForExecution(exec) ?? ''
 }
 
 export function staticAnalysisForExecution(exec, config, fallbackCwd = process.cwd()) {
@@ -18,7 +18,7 @@ export function staticAnalysisForExecution(exec, config, fallbackCwd = process.c
   const roots = Array.isArray(config?.workspaceRoots) && config.workspaceRoots.length > 0
     ? config.workspaceRoots
     : [cwd]
-  return analyzePowerShellCommand(executionCommand(exec), {
+  return analyzeToolExecution(exec, {
     cwd,
     workspaceRoots: roots,
     protectedPaths: config?.protectedPaths,

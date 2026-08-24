@@ -1,0 +1,41 @@
+name: Guard finding report
+description: Report a false positive, missed operation, or uncovered DSH tool schema.
+title: "[Guard] "
+labels: [guard-report]
+body:
+  - type: dropdown
+    id: kind
+    attributes:
+      label: Finding type
+      options: [False positive, Missed operation, Unsupported tool adapter]
+    validations:
+      required: true
+  - type: input
+    id: versions
+    attributes:
+      label: Versions
+      description: Windows, DSH, PowerShell, and plugin versions.
+    validations:
+      required: true
+  - type: textarea
+    id: doctor
+    attributes:
+      label: Redacted Doctor output
+      description: Never include credential values, tokens, usernames, or private paths.
+      render: text
+    validations:
+      required: true
+  - type: textarea
+    id: call
+    attributes:
+      label: Redacted tool call and expected result
+      render: text
+    validations:
+      required: true
+  - type: checkboxes
+    id: safety
+    attributes:
+      label: Safety confirmation
+      options:
+        - label: I removed credentials and private identifiers.
+          required: true
