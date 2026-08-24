@@ -1,13 +1,14 @@
 import { defineTool } from '@deepseek-ai/dsh-tools'
 import { installSettingsSection, settingsNamespace } from '@deepseek-ai/dsh-settings'
 import Schema from '@deepseek-ai/schemastery'
-import { analyzePowerShellCommand, formatAnalysis } from './analyzer.js'
+import { formatAnalysis } from './analyzer.js'
 import { appendAuditRecord, createAuditRecord } from './audit.js'
 import { createConfigSource, guardedToolNames } from './config-source.js'
 import { formatDoctorReport, runWindowsGuardDoctor } from './doctor.js'
 import { decide, normalizeMode } from './policy.js'
 import { guardAnalysisTargets } from './path-guard.js'
 import { decisionReason, executionCommand, executionCwd, installMonotonicGuard } from './runtime-guard.js'
+import { analyzeToolExecution } from './tool-adapters.js'
 
 export const name = 'dsh-windows-workspace-guard'
 export const inject = ['tools', 'settings']
@@ -17,7 +18,7 @@ export const Config = Schema.object({
   enabled: Schema.boolean().default(true),
   mode: Schema.string().default('block'),
   reportOnly: Schema.boolean().default(false),
-  toolNames: Schema.array(Schema.string()).default(['pwsh']),
+  toolNames: Schema.array(Schema.string()).default(['pwsh', 'str_replace_editor']),
   workspaceRoots: Schema.array(Schema.string()).default([]),
   protectedPaths: Schema.array(Schema.string()).default([]),
   allowExact: Schema.array(Schema.string()).default([]),
@@ -101,9 +102,10 @@ function doctorOutputSchema() {
   }
 }
 
-async function analyze(command, cwd, config) {
+async function analyzeExecution(exec, config) {
+  const cwd = executionCwd(exec)
   const roots = Array.isArray(config.workspaceRoots) && config.workspaceRoots.length > 0 ? config.workspaceRoots : [cwd]
-  const result = analyzePowerShellCommand(command, {
+  const result = analyzeToolExecution(exec, {
     cwd,
     workspaceRoots: roots,
     protectedPaths: Array.isArray(config.protectedPaths) ? config.protectedPaths : [],
@@ -157,9 +159,9 @@ export function apply(ctx, config) {
   ctx.on('tools/pre-execute', async (exec, next) => {
     const active = source.get()
     if (!active.enabled || !guardedToolNames(active).has(String(exec.name).toLowerCase())) return next()
-    const command = executionCommand(exec)
     const cwd = executionCwd(exec)
-    const result = await analyze(command, cwd, active)
+    const command = executionCommand(exec)
+    const result = await analyzeExecution(exec, active)
     const action = decide(result, normalizeMode(active.mode, active.reportOnly))
 
     const relevant = result.mutating || result.sensitive
@@ -208,9 +210,11 @@ export function apply(ctx, config) {
 
   ctx.tools.register(defineTool({
     name: 'windows_workspace_guard_check',
-    description: 'Checks a PowerShell or Git command against Windows workspace, immutable-path, and destructive-operation policy without executing it.',
+    description: 'Dry-runs a PowerShell command or structured str_replace_editor call against Windows workspace and sensitive-data policy without executing it.',
     parameters: {
-      command: { type: 'string', required: true, description: 'PowerShell command to inspect.' },
+      toolName: { type: 'string', enum: ['pwsh', 'str_replace_editor'], description: 'Tool schema to inspect. Defaults to pwsh.' },
+      command: { type: 'string', description: 'PowerShell command, or str_replace_editor operation: view/create/str_replace/insert.' },
+      path: { type: 'string', description: 'Absolute file path for a str_replace_editor dry run.' },
       cwd: { type: 'string', description: 'Working directory used to resolve relative paths.' },
     },
     output: {
@@ -220,7 +224,10 @@ export function apply(ctx, config) {
     async execute(args, exec) {
       const active = source.get()
       const cwd = args.cwd || executionCwd(exec)
-      return await analyze(args.command, cwd, active)
+      const toolName = args.toolName || 'pwsh'
+      return await analyzeExecution({ name: toolName, arguments: toolName === 'str_replace_editor'
+        ? { command: args.command, path: args.path, workdir: cwd }
+        : { command: args.command, workdir: cwd }, agent: { cwd } }, active)
     },
   }))
 

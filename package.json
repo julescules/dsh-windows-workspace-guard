@@ -1,7 +1,7 @@
 {
   "name": "dsh-windows-workspace-guard",
-  "version": "0.7.0",
-  "description": "Prevent destructive PowerShell actions and credential leaks in DeepSeek Harness on Windows.",
+  "version": "0.8.0",
+  "description": "Guard DeepSeek Harness PowerShell and structured file edits on Windows with workspace, credential, approval, and audit policy.",
   "author": "julescules",
   "homepage": "https://github.com/julescules/dsh-windows-workspace-guard#readme",
   "repository": {
@@ -23,6 +23,7 @@
     "./policy": "./policy.js",
     "./path-guard": "./path-guard.js",
     "./runtime-guard": "./runtime-guard.js",
+    "./tool-adapters": "./tool-adapters.js",
     "./sensitive": "./sensitive.js",
     "./package.json": "./package.json"
   },
@@ -36,6 +37,9 @@
     "policy.js",
     "path-guard.js",
     "runtime-guard.js",
+    "tool-adapters.js",
+    "scripts/build-release-metadata.mjs",
+    "scripts/verify-release.ps1",
     "sensitive.js",
     "cordis.patch.yml",
     "README.md",
@@ -47,8 +51,9 @@
   ],
   "scripts": {
     "test": "node --test",
-    "check": "node --check index.js && node --check client.js && node --check analyzer.js && node --check audit.js && node --check config-source.js && node --check doctor.js && node --check policy.js && node --check path-guard.js && node --check runtime-guard.js && node --check sensitive.js && npm test",
-    "pack:dry": "npm pack --dry-run"
+    "check": "node --check index.js && node --check client.js && node --check analyzer.js && node --check audit.js && node --check config-source.js && node --check doctor.js && node --check policy.js && node --check path-guard.js && node --check runtime-guard.js && node --check sensitive.js && node --check tool-adapters.js && npm test",
+    "pack:dry": "npm pack --dry-run",
+    "release:metadata": "node scripts/build-release-metadata.mjs"
   },
   "engines": {
     "node": "^22.19.0 || >=24.0.0"

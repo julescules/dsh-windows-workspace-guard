@@ -34,7 +34,9 @@ test('doctor is bounded and read-only when paths are absent', async () => {
     monotonicGuardAvailable: true,
   })
   assert.equal(result.readOnly, true)
-  assert.equal(result.schemaVersion, 'windows-workspace-guard-doctor/v1')
+  assert.equal(result.schemaVersion, 'windows-workspace-guard-doctor/v2')
   assert.ok(result.facts.some((item) => item.id === 'monotonic-tool-guard' && item.level === 'PASS'))
   assert.ok(result.facts.some((item) => item.id === 'workspace-path' && item.level === 'WARN'))
+  assert.ok(result.facts.some((item) => item.id === 'tool-coverage-pwsh' && item.level === 'PASS'))
+  assert.ok(result.facts.some((item) => item.id === 'tool-coverage-str_replace_editor' && item.level === 'PASS'))
 })

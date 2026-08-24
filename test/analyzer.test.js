@@ -78,7 +78,7 @@ test('blocks disk, cmd, .NET, and robocopy bypass families', () => {
 })
 
 test('exact allowlist is explicit and deterministic', () => {
-  const command = "Remove-Item -LiteralPath 'C:\\outside\\known.tmp' -Force"
+  const command = 'git push origin feature --force-with-lease'
   const result = analyzePowerShellCommand(command, { ...options, allowExact: [command] })
   assert.equal(result.status, 'PASS')
   assert.equal(result.allowedByExact, true)
@@ -93,6 +93,11 @@ test('protects immutable source media even inside the workspace', () => {
 })
 
 test('exact allowlist cannot bypass non-overridable policy', () => {
+  const outsideCommand = "Remove-Item -LiteralPath 'C:\\outside\\known.tmp' -Force"
+  const outsideResult = analyzePowerShellCommand(outsideCommand, { ...options, allowExact: [outsideCommand] })
+  assert.equal(outsideResult.status, 'FAIL')
+  assert.equal(outsideResult.hardBlock, true)
+
   const protectedCommand = "Remove-Item -LiteralPath 'D:\\work\\project\\original\\master.zip' -Force"
   const protectedResult = analyzePowerShellCommand(protectedCommand, {
     ...options,
