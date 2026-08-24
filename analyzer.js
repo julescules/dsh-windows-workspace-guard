@@ -1,6 +1,7 @@
 import path from 'node:path'
+import { analyzeSensitiveCommand } from './sensitive.js'
 
-export const POLICY_VERSION = '2026-08-24.6'
+export const POLICY_VERSION = '2026-08-24.7'
 
 const POWERSHELL_MUTATION_PATTERN = /\b(?:Remove-Item|Move-Item|Clear-Content|Rename-Item|Copy-Item|Set-Content|Add-Content|Export-Csv|Export-Clixml|ri|rm|del|erase|rmdir|rd|mi|mv|ren|cp|copy)\b/i
 const DESTRUCTIVE_PATTERN = /\b(?:Remove-Item|Move-Item|Clear-Content|Rename-Item|ri|rm|del|erase|rmdir|rd|mi|mv|ren)\b/i
@@ -58,6 +59,11 @@ const HARD_BLOCK_IDS = new Set([
   'device-path',
   'protected-path',
   'broad-target',
+  'sensitive-path-read',
+  'sensitive-path-copy',
+  'sensitive-environment-read',
+  'sensitive-environment-enumeration',
+  'sensitive-network-egress',
 ])
 
 function finding(id, severity, message, evidence = '') {
@@ -187,8 +193,18 @@ export function analyzePowerShellCommand(command, options = {}) {
   const findings = []
 
   if (!text.trim()) {
-    return { policyVersion: POLICY_VERSION, status: 'PASS', risk: 'LOW', mutating: false, destructive: false, hardBlock: false, allowedByExact: false, commandPreview: '', targets: [], findings: [] }
+    return { policyVersion: POLICY_VERSION, status: 'PASS', risk: 'LOW', mutating: false, destructive: false, sensitive: false, hardBlock: false, allowedByExact: false, commandPreview: '', targets: [], findings: [] }
   }
+
+  const sensitiveAnalysis = analyzeSensitiveCommand(text, {
+    enabled: options.guardSensitiveData !== false,
+    cwd,
+    dshHome: options.dshHome,
+    userProfile: options.userProfile,
+    appData: options.appData,
+    env: options.env,
+    sensitivePaths: options.sensitivePaths,
+  })
 
   const diskMutation = DISK_PATTERN.test(text)
   const dotnetMutation = DOTNET_MUTATION_PATTERN.test(text)
@@ -226,8 +242,8 @@ export function analyzePowerShellCommand(command, options = {}) {
   ].filter(Boolean)
   const mutating = destructive || cmdletMutation || fileOutputMutation || redirectionTargets.length > 0 || gitFindings.length > 0 || systemFindings.length > 0 || processFindings.length > 0 || persistentFindings.length > 0 || nativeShellEscape || downloadWrite || alternateDataStream || opaqueExecution || nestedShell
 
-  if (!mutating) {
-    return { policyVersion: POLICY_VERSION, status: 'PASS', risk: 'LOW', mutating: false, destructive: false, hardBlock: false, allowedByExact: false, commandPreview: compactCommand(text), targets: [], findings: [] }
+  if (!mutating && !sensitiveAnalysis.sensitive) {
+    return { policyVersion: POLICY_VERSION, status: 'PASS', risk: 'LOW', mutating: false, destructive: false, sensitive: false, hardBlock: false, allowedByExact: false, commandPreview: compactCommand(text), targets: [], findings: [] }
   }
 
   if (diskMutation) findings.push(finding('disk-mutation', 'CRITICAL', 'Disk and volume mutation is outside the safe workspace model.'))
@@ -243,6 +259,7 @@ export function analyzePowerShellCommand(command, options = {}) {
   findings.push(...systemFindings)
   findings.push(...processFindings)
   findings.push(...persistentFindings)
+  findings.push(...sensitiveAnalysis.findings)
 
   const targets = cmdletMutation ? collectValues(LITERAL_PATH_PATTERN, text) : []
   const pathTargets = cmdletMutation ? collectValues(PATH_PATTERN, text) : []
@@ -284,6 +301,7 @@ export function analyzePowerShellCommand(command, options = {}) {
     risk: maxRisk(unique),
     mutating,
     destructive,
+    sensitive: sensitiveAnalysis.sensitive,
     hardBlock,
     allowedByExact: exact && unique.length === 0,
     commandPreview: compactCommand(text),
@@ -298,6 +316,7 @@ export function formatAnalysis(result) {
     `policy: ${result.policyVersion}`,
     `mutating: ${result.mutating ? 'yes' : 'no'}`,
     `destructive: ${result.destructive ? 'yes' : 'no'}`,
+    `sensitive: ${result.sensitive ? 'yes' : 'no'}`,
     `hard-block: ${result.hardBlock ? 'yes' : 'no'}`,
     `command: ${result.commandPreview || '(empty)'}`,
   ]

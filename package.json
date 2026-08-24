@@ -1,7 +1,7 @@
 {
   "name": "dsh-windows-workspace-guard",
-  "version": "0.6.0",
-  "description": "Persistent PowerShell, Windows workspace, system-mutation, Git-risk, approval, settings, and audit guard for DeepSeek Harness.",
+  "version": "0.7.0",
+  "description": "Prevent destructive PowerShell actions and credential leaks in DeepSeek Harness on Windows.",
   "author": "julescules",
   "homepage": "https://github.com/julescules/dsh-windows-workspace-guard#readme",
   "repository": {
@@ -19,8 +19,11 @@
     "./analyzer": "./analyzer.js",
     "./audit": "./audit.js",
     "./config-source": "./config-source.js",
+    "./doctor": "./doctor.js",
     "./policy": "./policy.js",
     "./path-guard": "./path-guard.js",
+    "./runtime-guard": "./runtime-guard.js",
+    "./sensitive": "./sensitive.js",
     "./package.json": "./package.json"
   },
   "files": [
@@ -29,17 +32,22 @@
     "analyzer.js",
     "audit.js",
     "config-source.js",
+    "doctor.js",
     "policy.js",
     "path-guard.js",
+    "runtime-guard.js",
+    "sensitive.js",
     "cordis.patch.yml",
     "README.md",
     "README.zh.md",
+    "CONTRIBUTING.md",
+    "SECURITY.md",
     "docs/demo.svg",
     "LICENSE"
   ],
   "scripts": {
     "test": "node --test",
-    "check": "node --check index.js && node --check client.js && node --check analyzer.js && node --check audit.js && node --check config-source.js && node --check policy.js && node --check path-guard.js && npm test",
+    "check": "node --check index.js && node --check client.js && node --check analyzer.js && node --check audit.js && node --check config-source.js && node --check doctor.js && node --check policy.js && node --check path-guard.js && node --check runtime-guard.js && node --check sensitive.js && npm test",
     "pack:dry": "npm pack --dry-run"
   },
   "engines": {
@@ -94,7 +102,9 @@
     "git-safety",
     "approval-policy",
     "settings-card",
-    "windows-security"
+    "windows-security",
+    "agent-security",
+    "credential-protection"
   ],
   "license": "MIT"
 }

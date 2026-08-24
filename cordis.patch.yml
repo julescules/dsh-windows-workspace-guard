@@ -12,5 +12,7 @@
         guardProcesses: true
         guardNativeEscapes: true
         guardExistingLinks: true
+        guardSensitiveData: true
+        sensitivePaths: []
         guardPersistentShell: true
         requireAbsoluteMutationPaths: true

@@ -1,87 +1,115 @@
-# dsh-windows-workspace-guard
+# Windows Workspace Guard for DeepSeek Harness
 
 [中文](README.zh.md) | English
 
 > [!IMPORTANT]
 > Unofficial community plugin. Independently developed and maintained; not reviewed or endorsed by DeepSeek.
 
-Safety policy for DeepSeek Harness on Windows. It checks model-issued PowerShell calls before execution and protects workspaces, original files, persistent shell state, Windows system state, processes, and Git recovery paths.
+Stop a Windows agent before it deletes originals, escapes the workspace, destroys Git recovery paths, reads credentials, or changes system state. PowerShell calls receive a clear **PASS**, **ASK**, or **HARD BLOCK** before dispatch.
 
-![Policy decisions: allow, ask, and hard block](docs/demo.svg)
+![Synthetic terminal example showing a credential block and read-only doctor](docs/demo.svg)
 
-## What it does
-
-- keeps destructive PowerShell targets inside trusted workspace roots;
-- makes `original/`, signing files, or any configured path immutable;
-- reviews risky Git commands such as `reset --hard`, `clean -fdx`, worktree restore, stash deletion, and force push;
-- hard-blocks registry, WMI/CIM, service, scheduled-task, ACL/ownership, junction/symlink/hardlink, NTFS alternate streams, and nested-shell mutations;
-- validates `Out-File`, `Tee-Object`, export cmdlets, and `>`/`>>` output targets against trusted workspace roots;
-- blocks native shell/script-host escapes and download-to-file bypasses by default;
-- reviews process termination and supports configurable guarded tool names;
-- protects the persistent `pwsh` session added in DSH `v0.1.0-rc.8`: relative mutation targets, command shadowing, dot-sourcing, detached work, remote execution, module state, environment state, and current-directory changes;
-- supports `block`, one-time `ask`, and audit-only `report` modes;
-- adds a live settings card to the official DSH plugin settings page (DSH `v0.1.0-rc.7` or newer);
-- writes optional append-only JSONL audit records with redacted previews and command hashes;
-- permanently blocks disk operations, broad roots, encoded execution, `System.IO` bypasses, and protected paths.
-- checks every existing target prefix with the live filesystem and hard-blocks traversal through a junction or symbolic link.
-
-## Install
+## Start in 30 seconds
 
 ```powershell
-dsh plugin --profile web add github:julescules/dsh-windows-workspace-guard#v0.6.0
+dsh plugin --profile web add github:julescules/dsh-windows-workspace-guard#v0.7.0
 dsh --profile web --dump-config
+dsh --profile web
 ```
 
-Restart DSH after installation.
+Restart DSH, then ask:
 
-## Recommended config
+```text
+Run windows_workspace_guard_doctor, then use windows_workspace_guard_check
+to inspect this command without executing it:
+Get-Content -LiteralPath $env:DSH_HOME\.credentials.yaml
+```
+
+## Why v0.7.0
+
+### Monotonic hard blocks
+
+Static non-overridable rules are also registered through the official synchronous `ctx.tools.guard()` seam. They remain denials even if another reorderable `tools/pre-execute` listener short-circuits its waterfall. Older Harness builds without that API keep the pre-execute fallback.
+
+Live junction/symlink inspection remains asynchronous in `tools/pre-execute`; it cannot be moved into a synchronous guard and is reported honestly as a separate layer.
+
+### Credential and secret boundary
+
+With `guardSensitiveData: true` (default), the guarded `pwsh(command)` boundary blocks explicit reads or copies of:
+
+- `$DSH_HOME\.credentials.yaml` and `.env` files;
+- user SSH, AWS, Azure, Git, npm, GitHub CLI, and NuGet credential locations;
+- configured `sensitivePaths`;
+- sensitive environment variables and full `Env:` enumeration;
+- same-command outbound-network use combined with an explicit sensitive source.
+
+This is a conservative PowerShell command guard, not a general DLP system. It does not inspect arbitrary native-process memory, already-running processes, or tools outside `toolNames`.
+
+### Read-only Windows doctor
+
+`windows_workspace_guard_doctor` reports facts without changing ACLs or configuration:
+
+- `ctx.tools.guard()` availability;
+- DSH home and configured workspace/protected path state;
+- existing link metadata for configured roots;
+- audit-path writability and bounded duplicate-runtime checks;
+- credential-file ACL metadata on Windows, without opening credential contents.
+
+## Decisions
+
+| Result | Meaning |
+|---|---|
+| PASS | No matched risk under the active policy. |
+| ASK | A reviewable operation needs one host approval in `mode: ask`. |
+| HARD BLOCK | Disk/system mutation, policy bypass, immutable path, link traversal, or sensitive-data access cannot be approved away. |
+
+Use `windows_workspace_guard_check` for a dry run. It returns machine-readable findings and never executes the command.
+
+## Main settings
+
+The DSH Web settings card updates these values live:
 
 ```yaml
-- id: windows-workspace-guard
-  name: dsh-windows-workspace-guard
-  config:
-    mode: ask
-    workspaceRoots:
-      - 'D:\projects\current-project'
-    protectedPaths:
-      - 'D:\projects\current-project\original'
-    guardGit: true
-    guardSystem: true
-    guardProcesses: true
-    guardNativeEscapes: true
-    guardPersistentShell: true
-    guardExistingLinks: true
-    requireAbsoluteMutationPaths: true
-    auditPath: 'D:\projects\current-project\operation_logs\dsh-guard.audit.jsonl'
+enabled: true
+mode: block               # block | ask | report
+toolNames: [pwsh]
+workspaceRoots: []        # empty = current session cwd
+protectedPaths: []
+guardExistingLinks: true
+guardSensitiveData: true
+sensitivePaths: []
+auditPath: ''             # optional append-only JSONL
+auditIncludeCommand: false
+auditFailClosed: false
 ```
 
-On DSH `v0.1.0-rc.7` or newer, the same fields can be changed from **Settings → Plugins → Windows Workspace Guard** and apply immediately without restarting the plugin. This release is validated against DSH `v0.1.1-rc.2` while retaining the persistent PowerShell contract introduced in rc.8.
+With an audit path, dispatch writes occur after host approval and monotonic guards. Denied calls are observed after their final result. Commands are hashed and redacted by default.
 
-`requireAbsoluteMutationPaths` is enabled by default. Read-only commands may still use relative paths, but file deletion, move, copy, rename, and overwrite operations must use drive-qualified or UNC paths. This prevents an earlier persistent `Set-Location` call from changing the meaning of a later command.
+## DSH integration
 
-`guardExistingLinks` is also enabled by default. Before a mutation is allowed, the plugin calls `lstat` on each existing lexical path prefix. Existing junctions/symlinks and inspection failures are hard blocks, so a trusted-looking path cannot silently resolve outside the approved workspace.
+The package stays outside Harness core and uses the official `dsh.bundle.patch`, `tools/pre-execute`, `ctx.tools.guard()`, `tools/execute`, `tools/result`, settings, and typed-tool seams.
 
-| Result | `block` | `ask` | `report` |
-|---|---|---|---|
-| Safe | allow | allow | allow |
-| Needs review | deny | ask once | allow + audit |
-| Hard block | deny | deny | deny |
+## Upgrade, disable, uninstall
 
-Hard blocks cannot be bypassed by `allowExact` or report mode.
+```powershell
+dsh plugin --profile web add github:julescules/dsh-windows-workspace-guard#v0.7.0
+dsh plugin --profile web list
+dsh plugin --help
+```
 
-## Check without running
+Use the disable/remove command shown by `dsh plugin --help` for your Harness build, then restart DSH. Profile command names are still changing during developer preview.
 
-The plugin registers `windows_workspace_guard_check`. The agent can inspect a command and receive stable `PASS`, `REVIEW`, or `FAIL` JSON without executing it.
+## Troubleshooting and data
 
-## Verified
+- Missing settings card: run `dsh --profile web --dump-config`, confirm `windows-workspace-guard`, then restart Web.
+- False positive: run the dry-run tool and report finding IDs plus a redacted command/path.
+- The plugin makes no network requests. Doctor reads filesystem/ACL metadata only and never credential values.
+- No audit file is created unless `auditPath` is configured.
+- Keep `workspaceRoots` and `sensitivePaths` absolute and narrow.
 
-- 44/44 unit, browser-contract, live-path, and adversarial tests pass;
-- official `dsh.bundle.patch` package shape;
-- official keyed `settings.plugin.item` card and `settingsScope` live-config contract;
-- official `tools/pre-execute` allow/deny/ask contract;
-- real `@deepseek-ai/dsh@0.1.1-rc.2` profile install, config composition, Web Host boot-graph discovery, and served client bundle;
-- package contains no install-time build step;
-- UTF-8 append-only audit with common secret redaction.
+## Verify
+
+[![CI](https://github.com/julescules/dsh-windows-workspace-guard/actions/workflows/ci.yml/badge.svg)](https://github.com/julescules/dsh-windows-workspace-guard/actions/workflows/ci.yml)
 
 ```powershell
 npm run check
@@ -90,11 +118,14 @@ npm pack --dry-run
 
 ## Limits
 
-- Static inspection is not a complete PowerShell parser or OS sandbox.
-- `pwsh` is intercepted by default; add other PowerShell tool names in `toolNames`.
-- A filesystem object can still change between inspection and execution (TOCTOU); keep workspace permissions narrow.
-- The plugin cannot introspect the live PTY current directory, so absolute mutation paths are the default safety boundary.
-- DeepSeek Harness is in developer preview; pin a reviewed release or commit.
+- Static policy is not an operating-system sandbox.
+- A filesystem TOCTOU window remains between link inspection and execution.
+- Tools outside `toolNames` need their own policy.
+- ACL warnings are review evidence, not automatic permission repair.
+
+For missed cases, reply in the [official community plugin thread](https://github.com/deepseek-ai/deepseek-harness/discussions/2429) with Windows, PowerShell and DSH versions, a redacted command, expected PASS/ASK/BLOCK, and redacted doctor output.
+
+See [CONTRIBUTING.md](CONTRIBUTING.md) and [SECURITY.md](SECURITY.md).
 
 ## License
 

@@ -1,40 +1,35 @@
-<svg xmlns="http://www.w3.org/2000/svg" width="1200" height="640" viewBox="0 0 1200 640" role="img" aria-labelledby="title desc">
-  <title id="title">Windows Workspace Guard policy decisions</title>
-  <desc id="desc">Terminal-style demonstration of safe, approval-required, and hard-blocked commands.</desc>
+<svg xmlns="http://www.w3.org/2000/svg" width="1200" height="630" viewBox="0 0 1200 630" role="img" aria-labelledby="title desc">
+  <title id="title">Windows Workspace Guard synthetic terminal demo</title>
+  <desc id="desc">A terminal-style example showing a monotonic credential block and read-only Windows doctor facts.</desc>
   <defs>
-    <linearGradient id="bg" x1="0" y1="0" x2="1" y2="1">
-      <stop offset="0" stop-color="#111827"/>
-      <stop offset="1" stop-color="#07111f"/>
-    </linearGradient>
-    <filter id="shadow" x="-10%" y="-10%" width="120%" height="130%">
-      <feDropShadow dx="0" dy="18" stdDeviation="22" flood-color="#000" flood-opacity=".45"/>
-    </filter>
+    <linearGradient id="bg" x1="0" y1="0" x2="1" y2="1"><stop offset="0" stop-color="#071521"/><stop offset="1" stop-color="#141633"/></linearGradient>
+    <linearGradient id="accent" x1="0" y1="0" x2="1" y2="0"><stop offset="0" stop-color="#42e0b5"/><stop offset="1" stop-color="#6aa8ff"/></linearGradient>
+    <filter id="shadow"><feDropShadow dx="0" dy="10" stdDeviation="18" flood-opacity=".4"/></filter>
   </defs>
-  <rect width="1200" height="640" fill="#e8eef7"/>
-  <rect x="54" y="46" width="1092" height="548" rx="18" fill="url(#bg)" filter="url(#shadow)"/>
-  <rect x="54" y="46" width="1092" height="58" rx="18" fill="#1f2937"/>
-  <rect x="54" y="84" width="1092" height="20" fill="#1f2937"/>
-  <circle cx="91" cy="75" r="8" fill="#fb7185"/>
-  <circle cx="119" cy="75" r="8" fill="#fbbf24"/>
-  <circle cx="147" cy="75" r="8" fill="#34d399"/>
-  <text x="600" y="82" text-anchor="middle" fill="#cbd5e1" font-family="Segoe UI, sans-serif" font-size="18">dsh-windows-workspace-guard</text>
-  <g font-family="Cascadia Mono, Consolas, monospace" font-size="20">
-    <text x="92" y="151" fill="#64748b"># Safe child deletion</text>
-    <text x="92" y="185" fill="#e2e8f0">Remove-Item -LiteralPath 'D:\project\builds\old' -Recurse</text>
-    <rect x="92" y="205" width="112" height="34" rx="7" fill="#064e3b"/>
-    <text x="148" y="229" text-anchor="middle" fill="#6ee7b7" font-weight="700">PASS</text>
-
-    <text x="92" y="292" fill="#64748b"># Shared history rewrite</text>
-    <text x="92" y="326" fill="#e2e8f0">git push origin main --force-with-lease</text>
-    <rect x="92" y="346" width="148" height="34" rx="7" fill="#78350f"/>
-    <text x="166" y="370" text-anchor="middle" fill="#fde68a" font-weight="700">ASK ONCE</text>
-    <text x="258" y="370" fill="#94a3b8">git-force-push · HIGH</text>
-
-    <text x="92" y="433" fill="#64748b"># Immutable original media</text>
-    <text x="92" y="467" fill="#e2e8f0">Remove-Item -LiteralPath 'D:\project\original\master.zip'</text>
-    <rect x="92" y="487" width="172" height="34" rx="7" fill="#7f1d1d"/>
-    <text x="178" y="511" text-anchor="middle" fill="#fecaca" font-weight="700">HARD BLOCK</text>
-    <text x="282" y="511" fill="#94a3b8">protected-path · CRITICAL</text>
+  <rect width="1200" height="630" rx="28" fill="url(#bg)"/>
+  <circle cx="1110" cy="70" r="230" fill="#686eff" opacity=".09"/><circle cx="80" cy="610" r="270" fill="#34e3b1" opacity=".06"/>
+  <g font-family="Segoe UI, Noto Sans SC, sans-serif">
+    <text x="60" y="70" fill="#f7f8ff" font-size="38" font-weight="700">Windows Workspace Guard</text>
+    <text x="60" y="106" fill="#b8c0d2" font-size="19">Stop destructive PowerShell and credential leaks before dispatch</text>
+    <rect x="60" y="128" width="1080" height="3" rx="2" fill="url(#accent)"/>
+    <rect x="950" y="54" width="190" height="42" rx="21" fill="#102b2c" stroke="#45dfb2"/><text x="1045" y="81" text-anchor="middle" fill="#61e6bc" font-size="15" font-weight="700">SYNTHETIC EXAMPLE</text>
   </g>
-  <text x="92" y="561" fill="#60a5fa" font-family="Segoe UI, sans-serif" font-size="18">Workspace boundaries · one-time approval · append-only audit</text>
+  <g filter="url(#shadow)">
+    <rect x="60" y="160" width="1080" height="405" rx="18" fill="#080d16" stroke="#29364b" stroke-width="2"/>
+    <rect x="60" y="160" width="1080" height="42" rx="18" fill="#151d2b"/><rect x="60" y="184" width="1080" height="18" fill="#151d2b"/>
+    <circle cx="87" cy="181" r="6" fill="#ff6b77"/><circle cx="108" cy="181" r="6" fill="#ffcc67"/><circle cx="129" cy="181" r="6" fill="#55df9b"/>
+    <text x="600" y="187" text-anchor="middle" fill="#8792a7" font-family="Cascadia Mono, Consolas, monospace" font-size="14">DeepSeek Harness · pwsh policy</text>
+  </g>
+  <g font-family="Cascadia Mono, Consolas, monospace" font-size="17">
+    <text x="88" y="239" fill="#68d8ff">PS&gt;</text><text x="130" y="239" fill="#eef2fa">Get-Content $env:DSH_HOME\.credentials.yaml</text>
+    <text x="88" y="274" fill="#ff7887" font-weight="700">HARD BLOCK</text><text x="222" y="274" fill="#a1aabc">monotonic ctx.tools.guard</text>
+    <text x="88" y="307" fill="#ff8f9c">sensitive-path-read</text><text x="322" y="307" fill="#cad0dc">credential contents never reached the model</text>
+    <text x="88" y="340" fill="#8c97aa">audit</text><text x="183" y="340" fill="#cad0dc">recorded after final denial · command redacted</text>
+    <line x1="88" y1="373" x2="1112" y2="373" stroke="#283047"/>
+    <text x="88" y="412" fill="#68d8ff">DSH&gt;</text><text x="151" y="412" fill="#eef2fa">windows_workspace_guard_doctor</text>
+    <text x="88" y="447" fill="#5ee2ad" font-weight="700">PASS</text><text x="151" y="447" fill="#a1aabc">read-only posture report</text>
+    <text x="88" y="480" fill="#5ee2ad">PASS</text><text x="151" y="480" fill="#cad0dc">monotonic-tool-guard · ctx.tools.guard</text>
+    <text x="88" y="513" fill="#ffd16f">WARN</text><text x="151" y="513" fill="#cad0dc">credential-acl · review inherited readable ACE</text>
+  </g>
+  <g font-family="Segoe UI, Noto Sans SC, sans-serif" font-size="15"><text x="60" y="602" fill="#909caf">No network calls · credential values never opened · PASS / ASK / HARD BLOCK</text><text x="1140" y="602" text-anchor="end" fill="#747f94">DeepSeek Harness community plugin</text></g>
 </svg>

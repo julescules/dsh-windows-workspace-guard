@@ -4,8 +4,10 @@ import Schema from '@deepseek-ai/schemastery'
 import { analyzePowerShellCommand, formatAnalysis } from './analyzer.js'
 import { appendAuditRecord, createAuditRecord } from './audit.js'
 import { createConfigSource, guardedToolNames } from './config-source.js'
+import { formatDoctorReport, runWindowsGuardDoctor } from './doctor.js'
 import { decide, normalizeMode } from './policy.js'
 import { guardAnalysisTargets } from './path-guard.js'
+import { decisionReason, executionCommand, executionCwd, installMonotonicGuard } from './runtime-guard.js'
 
 export const name = 'dsh-windows-workspace-guard'
 export const inject = ['tools', 'settings']
@@ -24,6 +26,8 @@ export const Config = Schema.object({
   guardProcesses: Schema.boolean().default(true),
   guardNativeEscapes: Schema.boolean().default(true),
   guardExistingLinks: Schema.boolean().default(true),
+  guardSensitiveData: Schema.boolean().default(true),
+  sensitivePaths: Schema.array(Schema.string()).default([]),
   guardPersistentShell: Schema.boolean().default(true),
   requireAbsoluteMutationPaths: Schema.boolean().default(true),
   logDecisions: Schema.boolean().default(true),
@@ -31,14 +35,6 @@ export const Config = Schema.object({
   auditIncludeCommand: Schema.boolean().default(false),
   auditFailClosed: Schema.boolean().default(false),
 })
-
-function sessionCwd(exec) {
-  return exec?.agent?.session?.header?.cwd
-    ?? exec?.agent?.header?.cwd
-    ?? exec?.agent?.cwd
-    ?? exec?.arguments?.workdir
-    ?? process.cwd()
-}
 
 function outputSchema() {
   return {
@@ -50,6 +46,7 @@ function outputSchema() {
       risk: { type: 'string', required: true },
       mutating: { type: 'boolean', required: true },
       destructive: { type: 'boolean', required: true },
+      sensitive: { type: 'boolean', required: true },
       hardBlock: { type: 'boolean', required: true },
       allowedByExact: { type: 'boolean', required: true },
       commandPreview: { type: 'string', required: true },
@@ -73,26 +70,79 @@ function outputSchema() {
   }
 }
 
+function doctorOutputSchema() {
+  return {
+    type: 'object',
+    additionalProperties: false,
+    properties: {
+      schemaVersion: { type: 'string', required: true },
+      status: { type: 'string', required: true },
+      readOnly: { type: 'boolean', required: true },
+      platform: { type: 'string', required: true },
+      osRelease: { type: 'string', required: true },
+      nodeVersion: { type: 'string', required: true },
+      dshHome: { type: 'string', required: true },
+      profile: { type: 'string', required: true },
+      facts: {
+        type: 'array',
+        required: true,
+        items: {
+          type: 'object',
+          additionalProperties: false,
+          properties: {
+            id: { type: 'string', required: true },
+            level: { type: 'string', required: true },
+            summary: { type: 'string', required: true },
+            evidence: { type: 'string', required: true },
+          },
+        },
+      },
+    },
+  }
+}
+
 async function analyze(command, cwd, config) {
-  const roots = config.workspaceRoots.length > 0 ? config.workspaceRoots : [cwd]
+  const roots = Array.isArray(config.workspaceRoots) && config.workspaceRoots.length > 0 ? config.workspaceRoots : [cwd]
   const result = analyzePowerShellCommand(command, {
     cwd,
     workspaceRoots: roots,
-    protectedPaths: config.protectedPaths,
-    allowExact: config.allowExact,
+    protectedPaths: Array.isArray(config.protectedPaths) ? config.protectedPaths : [],
+    allowExact: Array.isArray(config.allowExact) ? config.allowExact : [],
     guardGit: config.guardGit,
     guardSystem: config.guardSystem,
     guardProcesses: config.guardProcesses,
     guardNativeEscapes: config.guardNativeEscapes,
+    guardSensitiveData: config.guardSensitiveData,
+    sensitivePaths: Array.isArray(config.sensitivePaths) ? config.sensitivePaths : [],
     guardPersistentShell: config.guardPersistentShell,
     requireAbsoluteMutationPaths: config.requireAbsoluteMutationPaths,
   })
   return guardAnalysisTargets(result, { cwd, enabled: config.guardExistingLinks })
 }
 
-function decisionReason(result) {
-  const ids = result.findings.map((item) => item.id).join(', ')
-  return `[windows-workspace-guard] ${result.hardBlock ? 'hard block' : 'policy review'}: ${ids}`
+function executionKey(exec) {
+  return exec?.token ?? exec
+}
+
+function auditFailureResult() {
+  const message = '[windows-workspace-guard] audit write failed (fail-closed)'
+  return {
+    content: [{ type: 'text', text: `Error: ${message}` }],
+    isError: true,
+    error: { message, info: { name: 'WorkspaceGuardAuditError', code: 'WORKSPACE_GUARD_AUDIT_FAILED' } },
+  }
+}
+
+async function writePendingAudit(pending, decision) {
+  const record = createAuditRecord({
+    command: pending.command,
+    cwd: pending.cwd,
+    result: pending.result,
+    decision,
+    includeCommand: pending.config.auditIncludeCommand,
+    callId: pending.callId,
+  })
+  await appendAuditRecord(pending.config.auditPath, record)
 }
 
 export function apply(ctx, config) {
@@ -101,39 +151,59 @@ export function apply(ctx, config) {
     setSource: (current) => { source.setSource(current) },
     onChange: () => {},
   })
+  const monotonic = installMonotonicGuard(ctx, source)
+  const pendingAudits = new Map()
 
   ctx.on('tools/pre-execute', async (exec, next) => {
     const active = source.get()
     if (!active.enabled || !guardedToolNames(active).has(String(exec.name).toLowerCase())) return next()
-    const command = typeof exec.arguments?.command === 'string' ? exec.arguments.command : ''
-    const cwd = sessionCwd(exec)
+    const command = executionCommand(exec)
+    const cwd = executionCwd(exec)
     const result = await analyze(command, cwd, active)
     const action = decide(result, normalizeMode(active.mode, active.reportOnly))
 
-    if (active.logDecisions && result.mutating) {
+    const relevant = result.mutating || result.sensitive
+    if (active.logDecisions && relevant) {
       console.log(`[dsh-windows-workspace-guard] ${action.auditDecision} ${result.status} ${result.commandPreview}`)
     }
 
-    if (active.auditPath && result.mutating) {
-      try {
-        const record = createAuditRecord({
-          command,
-          cwd,
-          result,
-          decision: action.auditDecision,
-          includeCommand: active.auditIncludeCommand,
-          callId: exec.callId,
-        })
-        await appendAuditRecord(active.auditPath, record)
-      } catch (error) {
-        console.error(`[dsh-windows-workspace-guard] audit write failed: ${error instanceof Error ? error.message : String(error)}`)
-        if (active.auditFailClosed) return { kind: 'deny', reason: '[windows-workspace-guard] audit write failed (fail-closed)' }
-      }
+    if (active.auditPath && relevant) {
+      pendingAudits.set(executionKey(exec), { command, cwd, result, action, config: { ...active }, callId: exec.callId })
     }
 
     if (action.kind === 'deny') return { kind: 'deny', reason: decisionReason(result) }
     if (action.kind === 'ask') return { kind: 'ask', reason: decisionReason(result) }
     return next()
+  })
+
+  // This wrapper runs after ask approval and monotonic guards.  It avoids any
+  // audit-file mutation before the host has authorized dispatch.
+  ctx.on('tools/execute', async (exec, next) => {
+    const key = executionKey(exec)
+    const pending = pendingAudits.get(key)
+    if (!pending) return next()
+    pendingAudits.delete(key)
+    try {
+      const decision = pending.action.kind === 'ask' ? 'approved-dispatch' : pending.action.auditDecision
+      await writePendingAudit(pending, decision)
+    } catch (error) {
+      console.error(`[dsh-windows-workspace-guard] audit write failed: ${error instanceof Error ? error.message : String(error)}`)
+      if (pending.config.auditFailClosed) return auditFailureResult()
+    }
+    return next()
+  })
+
+  // Denied calls never dispatch.  Record them only after the immutable final
+  // result exists; this observer intentionally does not affect authorization.
+  ctx.on('tools/result', (exec) => {
+    const key = executionKey(exec)
+    const pending = pendingAudits.get(key)
+    if (!pending) return
+    pendingAudits.delete(key)
+    const decision = pending.action.kind === 'ask' ? 'approval-rejected' : pending.action.auditDecision
+    void writePendingAudit(pending, decision).catch((error) => {
+      console.error(`[dsh-windows-workspace-guard] audit write failed after denial: ${error instanceof Error ? error.message : String(error)}`)
+    })
   })
 
   ctx.tools.register(defineTool({
@@ -149,8 +219,29 @@ export function apply(ctx, config) {
     },
     async execute(args, exec) {
       const active = source.get()
-      const cwd = args.cwd || sessionCwd(exec)
+      const cwd = args.cwd || executionCwd(exec)
       return await analyze(args.command, cwd, active)
+    },
+  }))
+
+  ctx.tools.register(defineTool({
+    name: 'windows_workspace_guard_doctor',
+    description: 'Runs bounded, read-only Windows Workspace Guard diagnostics: effective roots, link state, audit path, DSH runtime copies, and credential ACL metadata. It never reads credential values or changes ACLs.',
+    parameters: {
+      profile: { type: 'string', description: 'DSH profile name to inspect. Defaults to web.' },
+      dshHome: { type: 'string', description: 'Optional DSH home override. Defaults to DSH_HOME or the user .dsh directory.' },
+    },
+    output: {
+      schema: doctorOutputSchema(),
+      render: (_args, value) => [{ type: 'text', text: formatDoctorReport(value) }],
+    },
+    async execute(args) {
+      return runWindowsGuardDoctor({
+        profile: args.profile,
+        dshHome: args.dshHome,
+        config: source.get(),
+        monotonicGuardAvailable: monotonic.installed,
+      })
     },
   }))
 }
