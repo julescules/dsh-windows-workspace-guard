@@ -18,7 +18,7 @@ export const Config = Schema.object({
   enabled: Schema.boolean().default(true),
   mode: Schema.string().default('block'),
   reportOnly: Schema.boolean().default(false),
-  toolNames: Schema.array(Schema.string()).default(['pwsh', 'str_replace_editor']),
+  toolNames: Schema.array(Schema.string()).default(['pwsh', 'read', 'write', 'edit', 'str_replace_editor']),
   workspaceRoots: Schema.array(Schema.string()).default([]),
   protectedPaths: Schema.array(Schema.string()).default([]),
   allowExact: Schema.array(Schema.string()).default([]),
@@ -210,11 +210,11 @@ export function apply(ctx, config) {
 
   ctx.tools.register(defineTool({
     name: 'windows_workspace_guard_check',
-    description: 'Dry-runs a PowerShell command or structured str_replace_editor call against Windows workspace and sensitive-data policy without executing it.',
+    description: 'Dry-runs an official PowerShell or filesystem tool call against Windows workspace and sensitive-data policy without executing it.',
     parameters: {
-      toolName: { type: 'string', enum: ['pwsh', 'str_replace_editor'], description: 'Tool schema to inspect. Defaults to pwsh.' },
+      toolName: { type: 'string', enum: ['pwsh', 'read', 'write', 'edit', 'str_replace_editor'], description: 'Verified official tool schema to inspect. Defaults to pwsh.' },
       command: { type: 'string', description: 'PowerShell command, or str_replace_editor operation: view/create/str_replace/insert.' },
-      path: { type: 'string', description: 'Absolute file path for a str_replace_editor dry run.' },
+      path: { type: 'string', description: 'File path for read/write/edit or an absolute path for str_replace_editor.' },
       cwd: { type: 'string', description: 'Working directory used to resolve relative paths.' },
     },
     output: {
@@ -225,9 +225,12 @@ export function apply(ctx, config) {
       const active = source.get()
       const cwd = args.cwd || executionCwd(exec)
       const toolName = args.toolName || 'pwsh'
-      return await analyzeExecution({ name: toolName, arguments: toolName === 'str_replace_editor'
+      const toolArguments = toolName === 'str_replace_editor'
         ? { command: args.command, path: args.path, workdir: cwd }
-        : { command: args.command, workdir: cwd }, agent: { cwd } }, active)
+        : ['read', 'write', 'edit'].includes(toolName)
+          ? { file_path: args.path, workdir: cwd }
+          : { command: args.command, workdir: cwd }
+      return await analyzeExecution({ name: toolName, arguments: toolArguments, agent: { cwd } }, active)
     },
   }))
 

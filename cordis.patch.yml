@@ -7,6 +7,9 @@
         mode: block
         toolNames:
           - pwsh
+          - read
+          - write
+          - edit
           - str_replace_editor
         guardGit: true
         guardSystem: true

@@ -12,7 +12,7 @@ export function createConfigSource(entry) {
   }
 }
 
-/** Tool names guarded by one config, including the official structured editor. */
+/** Tool names guarded by one config, including both official filesystem suites. */
 export function guardedToolNames(config) {
   const names = Array.isArray(config?.toolNames) ? config.toolNames : []
   const normalized = names
