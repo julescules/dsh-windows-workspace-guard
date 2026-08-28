@@ -7,14 +7,14 @@
 > [!IMPORTANT]
 > Unofficial community plugin. Independently developed and maintained; not reviewed or endorsed by DeepSeek.
 
-Stop a Windows agent before it deletes originals, escapes the workspace, destroys Git recovery paths, reads credentials, or changes system state. PowerShell and the official structured file editor receive a clear **PASS**, **ASK**, or **HARD BLOCK** before dispatch.
+Stop a Windows agent before it deletes originals, escapes the workspace, destroys Git recovery paths, reads credentials, or changes system state. PowerShell and both official filesystem suites receive a clear **PASS**, **ASK**, or **HARD BLOCK** before dispatch.
 
 ![Synthetic terminal example showing a credential block and read-only doctor](docs/demo.svg)
 
 ## Start in 30 seconds
 
 ```powershell
-dsh plugin --profile web add github:julescules/dsh-windows-workspace-guard#v0.8.0
+dsh plugin --profile web add github:julescules/dsh-windows-workspace-guard#v0.9.0
 dsh --profile web --dump-config
 dsh --profile web
 ```
@@ -27,15 +27,15 @@ to inspect this command without executing it:
 Get-Content -LiteralPath $env:DSH_HOME\.credentials.yaml
 ```
 
-## Why v0.8.0
+## Why v0.9.0
 
 ### Verified multi-tool boundary
 
-The default protected set is now `pwsh` plus the official `str_replace_editor`. The editor adapter reads its structured `command` and `path` arguments, omits file content from policy previews, and applies the same workspace, immutable-path, existing-link, and sensitive-path rules to `create`, `str_replace`, `insert`, and sensitive `view` calls.
+The default protected set follows both official agent presets: `pwsh`, the standard preset's `read` / `write` / `edit`, and the Minimal preset's `str_replace_editor`. Each adapter reads only the official path and operation fields, omits file content and replacement strings from policy previews, and applies the same workspace, immutable-path, existing-link, and sensitive-path rules.
 
 Configured tools without a verified argument adapter fail closed. Doctor reports every configured tool as `covered` or `unsupported`; the plugin never treats an unknown schema as PowerShell and calls it protected.
 
-Upgrades preserve live settings. If an older profile already stored `toolNames: [pwsh]`, add `str_replace_editor` in the settings card; Doctor will show the effective coverage.
+Upgrades preserve live settings. If an older profile already stored a shorter `toolNames` list, add `read`, `write`, `edit`, and `str_replace_editor` in the settings card; Doctor will show the effective coverage.
 
 ### Monotonic hard blocks
 
@@ -47,7 +47,7 @@ Live junction/symlink inspection remains asynchronous in `tools/pre-execute`; it
 
 ### Credential and secret boundary
 
-With `guardSensitiveData: true` (default), the guarded `pwsh(command)` boundary blocks explicit reads or copies of:
+With `guardSensitiveData: true` (default), guarded `pwsh`, `read`, and editor calls block explicit reads or copies of:
 
 - `$DSH_HOME\.credentials.yaml` and `.env` files;
 - user SSH, AWS, Azure, Git, npm, GitHub CLI, and NuGet credential locations;
@@ -76,7 +76,7 @@ This is a conservative tool boundary, not a general DLP system. It does not insp
 | ASK | A reviewable operation needs one host approval in `mode: ask`. |
 | HARD BLOCK | Disk/system mutation, policy bypass, immutable path, link traversal, or sensitive-data access cannot be approved away. |
 
-Use `windows_workspace_guard_check` for a dry run. Select `pwsh` with `command`, or `str_replace_editor` with an operation plus absolute `path`; it returns machine-readable findings and never executes the call.
+Use `windows_workspace_guard_check` for a dry run. Select `pwsh` with `command`; select `read`, `write`, or `edit` with `path`; or select `str_replace_editor` with an operation plus absolute `path`. It returns machine-readable findings and never executes the call.
 
 ## Main settings
 
@@ -85,7 +85,7 @@ The DSH Web settings card updates these values live:
 ```yaml
 enabled: true
 mode: block               # block | ask | report
-toolNames: [pwsh, str_replace_editor]
+toolNames: [pwsh, read, write, edit, str_replace_editor]
 workspaceRoots: []        # empty = current session cwd
 protectedPaths: []
 guardExistingLinks: true
@@ -105,7 +105,7 @@ The package stays outside Harness core and uses the official `dsh.bundle.patch`,
 ## Upgrade, disable, uninstall
 
 ```powershell
-dsh plugin --profile web add github:julescules/dsh-windows-workspace-guard#v0.8.0
+dsh plugin --profile web add github:julescules/dsh-windows-workspace-guard#v0.9.0
 dsh plugin --profile web list
 dsh plugin --help
 ```
@@ -125,8 +125,8 @@ Use the disable/remove command shown by `dsh plugin --help` for your Harness bui
 ```powershell
 npm run check
 npm pack --dry-run
-node scripts/build-release-metadata.mjs .\dsh-windows-workspace-guard-0.8.0.tgz .\builds\v0.8.0
-.\scripts\verify-release.ps1 -PackagePath .\dsh-windows-workspace-guard-0.8.0.tgz -ChecksumsPath .\builds\v0.8.0\SHA256SUMS
+node scripts/build-release-metadata.mjs .\dsh-windows-workspace-guard-0.9.0.tgz .\builds\v0.9.0
+.\scripts\verify-release.ps1 -PackagePath .\dsh-windows-workspace-guard-0.9.0.tgz -ChecksumsPath .\builds\v0.9.0\SHA256SUMS
 ```
 
 Each release ships a SHA-256 checksum and CycloneDX SBOM. The verifier reads files literally and makes no network request.

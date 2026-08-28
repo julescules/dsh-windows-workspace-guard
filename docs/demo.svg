@@ -1,6 +1,6 @@
 <svg xmlns="http://www.w3.org/2000/svg" width="1200" height="630" viewBox="0 0 1200 630" role="img" aria-labelledby="title desc">
   <title id="title">Windows Workspace Guard synthetic terminal demo</title>
-  <desc id="desc">A terminal-style example showing structured file-editor protection, monotonic credential blocking, and coverage diagnostics.</desc>
+  <desc id="desc">A terminal-style example showing official read, write, edit, PowerShell, and structured-editor protection with coverage diagnostics.</desc>
   <defs>
     <linearGradient id="bg" x1="0" y1="0" x2="1" y2="1"><stop offset="0" stop-color="#071521"/><stop offset="1" stop-color="#141633"/></linearGradient>
     <linearGradient id="accent" x1="0" y1="0" x2="1" y2="0"><stop offset="0" stop-color="#42e0b5"/><stop offset="1" stop-color="#6aa8ff"/></linearGradient>
@@ -10,7 +10,7 @@
   <circle cx="1110" cy="70" r="230" fill="#686eff" opacity=".09"/><circle cx="80" cy="610" r="270" fill="#34e3b1" opacity=".06"/>
   <g font-family="Segoe UI, Noto Sans SC, sans-serif">
     <text x="60" y="70" fill="#f7f8ff" font-size="38" font-weight="700">Windows Workspace Guard</text>
-    <text x="60" y="106" fill="#b8c0d2" font-size="19">PowerShell + structured editor · verified adapters · fail-closed gaps</text>
+    <text x="60" y="106" fill="#b8c0d2" font-size="19">Official Standard + Minimal tools · verified adapters · fail-closed gaps</text>
     <rect x="60" y="128" width="1080" height="3" rx="2" fill="url(#accent)"/>
     <rect x="950" y="54" width="190" height="42" rx="21" fill="#102b2c" stroke="#45dfb2"/><text x="1045" y="81" text-anchor="middle" fill="#61e6bc" font-size="15" font-weight="700">SYNTHETIC EXAMPLE</text>
   </g>
@@ -21,7 +21,7 @@
     <text x="600" y="187" text-anchor="middle" fill="#8792a7" font-family="Cascadia Mono, Consolas, monospace" font-size="14">DeepSeek Harness · multi-tool policy coverage</text>
   </g>
   <g font-family="Cascadia Mono, Consolas, monospace" font-size="17">
-    <text x="88" y="239" fill="#68d8ff">TOOL&gt;</text><text x="162" y="239" fill="#eef2fa">str_replace_editor view D:\project\.env</text>
+    <text x="88" y="239" fill="#68d8ff">TOOL&gt;</text><text x="162" y="239" fill="#eef2fa">read { file_path: D:\project\.env }</text>
     <text x="88" y="274" fill="#ff7887" font-weight="700">HARD BLOCK</text><text x="222" y="274" fill="#a1aabc">monotonic ctx.tools.guard</text>
     <text x="88" y="307" fill="#ff8f9c">sensitive-path-read</text><text x="322" y="307" fill="#cad0dc">structured path checked · content omitted</text>
     <text x="88" y="340" fill="#8c97aa">audit</text><text x="183" y="340" fill="#cad0dc">recorded after final denial · command redacted</text>
@@ -29,7 +29,7 @@
     <text x="88" y="412" fill="#68d8ff">DSH&gt;</text><text x="151" y="412" fill="#eef2fa">windows_workspace_guard_doctor</text>
     <text x="88" y="447" fill="#5ee2ad" font-weight="700">PASS</text><text x="151" y="447" fill="#a1aabc">read-only posture report</text>
     <text x="88" y="480" fill="#5ee2ad">PASS</text><text x="151" y="480" fill="#cad0dc">pwsh · powershell-command adapter</text>
-    <text x="88" y="513" fill="#5ee2ad">PASS</text><text x="151" y="513" fill="#cad0dc">str_replace_editor · structured-file-editor adapter</text>
+    <text x="88" y="513" fill="#5ee2ad">PASS</text><text x="151" y="513" fill="#cad0dc">read / write / edit / str_replace_editor · content omitted</text>
   </g>
   <g font-family="Segoe UI, Noto Sans SC, sans-serif" font-size="15"><text x="60" y="602" fill="#909caf">No network calls · SHA-256 + CycloneDX SBOM · PASS / ASK / HARD BLOCK</text><text x="1140" y="602" text-anchor="end" fill="#747f94">dshbase verified</text></g>
 </svg>

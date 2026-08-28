@@ -38,5 +38,8 @@ test('doctor is bounded and read-only when paths are absent', async () => {
   assert.ok(result.facts.some((item) => item.id === 'monotonic-tool-guard' && item.level === 'PASS'))
   assert.ok(result.facts.some((item) => item.id === 'workspace-path' && item.level === 'WARN'))
   assert.ok(result.facts.some((item) => item.id === 'tool-coverage-pwsh' && item.level === 'PASS'))
+  assert.ok(result.facts.some((item) => item.id === 'tool-coverage-read' && item.level === 'PASS'))
+  assert.ok(result.facts.some((item) => item.id === 'tool-coverage-write' && item.level === 'PASS'))
+  assert.ok(result.facts.some((item) => item.id === 'tool-coverage-edit' && item.level === 'PASS'))
   assert.ok(result.facts.some((item) => item.id === 'tool-coverage-str_replace_editor' && item.level === 'PASS'))
 })

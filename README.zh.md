@@ -7,14 +7,14 @@
 > [!IMPORTANT]
 > 非官方社区插件，由社区独立开发与维护，未经 DeepSeek 审核或背书。
 
-在 Windows Agent 误删原始文件、越界写盘、破坏 Git 恢复路径、读取凭据或改变系统状态之前阻止它。PowerShell 与官方结构化文件编辑器在分派前都会得到清晰的 **PASS**、**ASK** 或 **HARD BLOCK**。
+在 Windows Agent 误删原始文件、越界写盘、破坏 Git 恢复路径、读取凭据或改变系统状态之前阻止它。PowerShell 与官方两套文件工具在分派前都会得到清晰的 **PASS**、**ASK** 或 **HARD BLOCK**。
 
 ![合成终端示例：凭据阻断与只读 Doctor](docs/demo.svg)
 
 ## 30 秒开始
 
 ```powershell
-dsh plugin --profile web add github:julescules/dsh-windows-workspace-guard#v0.8.0
+dsh plugin --profile web add github:julescules/dsh-windows-workspace-guard#v0.9.0
 dsh --profile web --dump-config
 dsh --profile web
 ```
@@ -27,15 +27,15 @@ dsh --profile web
 Get-Content -LiteralPath $env:DSH_HOME\.credentials.yaml
 ```
 
-## v0.8.0 的四个重点
+## v0.9.0 的四个重点
 
 ### 已验证的多工具边界
 
-默认同时保护 `pwsh` 与官方 `str_replace_editor`。文件编辑适配器直接读取结构化的 `command` 和 `path` 参数，不把文件内容写入策略预览，并对 `create`、`str_replace`、`insert` 以及敏感路径 `view` 应用工作区、不可变路径、既有链接和凭据规则。
+默认覆盖官方两套 Agent 预设：`pwsh`、Standard 预设的 `read / write / edit`，以及 Minimal 预设的 `str_replace_editor`。适配器只读取官方路径和操作字段，不把文件正文、旧字符串或新字符串写入策略预览，并统一应用工作区、不可变路径、既有链接和凭据规则。
 
 用户配置但没有已验证参数适配器的工具会 fail closed。Doctor 会逐项显示 `covered` 或 `unsupported`，不会把未知参数格式冒充为 PowerShell 后宣称已保护。
 
-升级会保留现有实时设置。如果旧 Profile 已保存 `toolNames: [pwsh]`，请在设置卡中加入 `str_replace_editor`；Doctor 会显示实际生效的覆盖范围。
+升级会保留现有实时设置。如果旧 Profile 已保存较短的 `toolNames`，请在设置卡中加入 `read`、`write`、`edit` 和 `str_replace_editor`；Doctor 会显示实际生效的覆盖范围。
 
 ### 单调强制阻断
 
@@ -47,7 +47,7 @@ Get-Content -LiteralPath $env:DSH_HOME\.credentials.yaml
 
 ### 凭据与敏感数据边界
 
-默认 `guardSensitiveData: true`，在受保护的 `pwsh(command)` 边界阻断显式读取或复制：
+默认 `guardSensitiveData: true`，在受保护的 `pwsh`、`read` 与编辑工具边界阻断显式读取或复制：
 
 - `$DSH_HOME\.credentials.yaml` 和 `.env` 文件；
 - 用户 SSH、AWS、Azure、Git、npm、GitHub CLI、NuGet 凭据位置；
@@ -76,7 +76,7 @@ Get-Content -LiteralPath $env:DSH_HOME\.credentials.yaml
 | ASK | 在 `mode: ask` 下，需要 Host 批准一次的可审查操作。 |
 | HARD BLOCK | 磁盘/系统变更、策略绕过、不可变路径、链接穿越或敏感数据访问不能靠批准放行。 |
 
-`windows_workspace_guard_check` 是只读 dry-run：`pwsh` 传入命令，`str_replace_editor` 传入操作与绝对路径；它返回机器可读 finding，不执行调用。
+`windows_workspace_guard_check` 是只读 dry-run：`pwsh` 传入命令；`read / write / edit` 传入路径；`str_replace_editor` 传入操作与绝对路径。它返回机器可读 finding，不执行调用。
 
 ## 主要设置
 
@@ -85,7 +85,7 @@ DSH Web 设置卡可以实时修改：
 ```yaml
 enabled: true
 mode: block               # block | ask | report
-toolNames: [pwsh, str_replace_editor]
+toolNames: [pwsh, read, write, edit, str_replace_editor]
 workspaceRoots: []        # 空数组表示当前 session cwd
 protectedPaths: []
 guardExistingLinks: true
@@ -105,7 +105,7 @@ auditFailClosed: false
 ## 升级、禁用、卸载
 
 ```powershell
-dsh plugin --profile web add github:julescules/dsh-windows-workspace-guard#v0.8.0
+dsh plugin --profile web add github:julescules/dsh-windows-workspace-guard#v0.9.0
 dsh plugin --profile web list
 dsh plugin --help
 ```
@@ -125,8 +125,8 @@ dsh plugin --help
 ```powershell
 npm run check
 npm pack --dry-run
-node scripts/build-release-metadata.mjs .\dsh-windows-workspace-guard-0.8.0.tgz .\builds\v0.8.0
-.\scripts\verify-release.ps1 -PackagePath .\dsh-windows-workspace-guard-0.8.0.tgz -ChecksumsPath .\builds\v0.8.0\SHA256SUMS
+node scripts/build-release-metadata.mjs .\dsh-windows-workspace-guard-0.9.0.tgz .\builds\v0.9.0
+.\scripts\verify-release.ps1 -PackagePath .\dsh-windows-workspace-guard-0.9.0.tgz -ChecksumsPath .\builds\v0.9.0\SHA256SUMS
 ```
 
 每个 Release 同时提供 SHA-256 与 CycloneDX SBOM。验证脚本使用 literal path，且不联网。

@@ -1,9 +1,12 @@
 import { POLICY_VERSION, analyzePowerShellCommand } from './analyzer.js'
 
-export const DEFAULT_GUARDED_TOOL_NAMES = Object.freeze(['pwsh', 'str_replace_editor'])
+export const DEFAULT_GUARDED_TOOL_NAMES = Object.freeze(['pwsh', 'read', 'write', 'edit', 'str_replace_editor'])
 export const SUPPORTED_TOOL_ADAPTERS = Object.freeze({
   pwsh: 'powershell-command',
   powershell: 'powershell-command',
+  read: 'official-filesystem-read',
+  write: 'official-filesystem-write',
+  edit: 'official-filesystem-edit',
   'str_replace_editor': 'structured-file-editor',
 })
 
@@ -46,6 +49,14 @@ export function commandForExecution(exec) {
     if (operation === 'view') return `Get-Content -LiteralPath ${target}`
     if (['create', 'str_replace', 'insert'].includes(operation)) return `Set-Content -LiteralPath ${target} -Value '[content omitted]'`
     return undefined
+  }
+  if (toolName === 'read') {
+    if (typeof args.file_path !== 'string' || !args.file_path.trim()) return undefined
+    return `Get-Content -LiteralPath ${quotePowerShellLiteral(args.file_path)}`
+  }
+  if (toolName === 'write' || toolName === 'edit') {
+    if (typeof args.file_path !== 'string' || !args.file_path.trim()) return undefined
+    return `Set-Content -LiteralPath ${quotePowerShellLiteral(args.file_path)} -Value '[content omitted]'`
   }
   return undefined
 }
