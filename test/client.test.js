@@ -30,7 +30,7 @@ test('ships an official lazy-CJS settings-card artifact', async () => {
   })
 
   assert.equal(client.name, 'dsh-windows-workspace-guard-client')
-  assert.deepEqual([...client.inject], ['slots', 'locale', 'settingsScope'])
+  assert.deepEqual([...client.inject], ['slots', 'locale', 'connection', 'remote', 'settingsScope'])
 
   const registered = {}
   const boundScope = { marker: 'bound' }

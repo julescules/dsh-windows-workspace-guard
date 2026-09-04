@@ -15,7 +15,7 @@ window.__ModuleLoader__.load({ id: 'dsh-windows-workspace-guard', factory: (requ
   const zh = {
     title: 'Windows 工作区防护', description: '保护 PowerShell 与官方两套文件工具；未知参数模式默认拒绝。',
     expand: '展开设置', collapse: '收起设置', enabled: '启用防护', mode: '处理模式',
-    block: '阻断', ask: '请求一次批准', report: '仅记录', toolNames: '受保护工具名称（已验证：pwsh、read、write、edit、str_replace_editor）',
+    block: '阻断', ask: '请求一次批准', report: '仅记录', toolNames: '受保护工具名称（已验证：pwsh、read、read_image、write、edit、glob、grep、str_replace_editor）',
     workspaceRoots: '可信工作区根（每行一个）', protectedPaths: '不可变保护目录（每行一个）',
     allowExact: '精确允许的命令（每行一个）', guardGit: '检查高风险 Git 操作',
     guardSystem: '硬阻断注册表、WMI/CIM、服务、计划任务、ACL 与链接操作', guardProcesses: '检查进程终止操作',
@@ -31,7 +31,7 @@ window.__ModuleLoader__.load({ id: 'dsh-windows-workspace-guard', factory: (requ
   const en = {
     title: 'Windows Workspace Guard', description: 'Protect PowerShell and both official filesystem suites; unknown schemas fail closed.',
     expand: 'Show settings', collapse: 'Hide settings', enabled: 'Enable protection', mode: 'Decision mode',
-    block: 'Block', ask: 'Ask once', report: 'Report only', toolNames: 'Guarded tools (verified: pwsh, read, write, edit, str_replace_editor)',
+    block: 'Block', ask: 'Ask once', report: 'Report only', toolNames: 'Guarded tools (verified: pwsh, read, read_image, write, edit, glob, grep, str_replace_editor)',
     workspaceRoots: 'Trusted workspace roots (one per line)', protectedPaths: 'Immutable protected paths (one per line)',
     allowExact: 'Exact allowed commands (one per line)', guardGit: 'Inspect risky Git operations',
     guardSystem: 'Hard-block registry, WMI/CIM, service, task, ACL, and link mutations', guardProcesses: 'Inspect process termination',
@@ -60,7 +60,7 @@ window.__ModuleLoader__.load({ id: 'dsh-windows-workspace-guard', factory: (requ
     return {
       enabled: value.enabled !== false,
       mode: typeof value.mode === 'string' ? value.mode : 'block',
-      toolNames: lines(value.toolNames?.length ? value.toolNames : ['pwsh', 'read', 'write', 'edit', 'str_replace_editor']),
+      toolNames: lines(value.toolNames?.length ? value.toolNames : ['pwsh', 'read', 'read_image', 'write', 'edit', 'glob', 'grep', 'str_replace_editor']),
       workspaceRoots: lines(value.workspaceRoots), protectedPaths: lines(value.protectedPaths), allowExact: lines(value.allowExact),
       guardGit: value.guardGit !== false, guardSystem: value.guardSystem !== false, guardProcesses: value.guardProcesses !== false,
       guardNativeEscapes: value.guardNativeEscapes !== false,
@@ -165,7 +165,7 @@ window.__ModuleLoader__.load({ id: 'dsh-windows-workspace-guard', factory: (requ
   }
 
   exports.name = 'dsh-windows-workspace-guard-client'
-  exports.inject = ['slots', 'locale', 'settingsScope']
+  exports.inject = ['slots', 'locale', 'connection', 'remote', 'settingsScope']
   exports.apply = function apply(ctx) {
     const scope = ctx.settingsScope.bind({ namespace: NAMESPACE })
     ctx.effect(() => ctx.locale.register(LOCALE, { zh, en }), 'windows-workspace-guard: settings locale')

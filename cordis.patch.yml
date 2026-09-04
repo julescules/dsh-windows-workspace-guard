@@ -8,8 +8,11 @@
         toolNames:
           - pwsh
           - read
+          - read_image
           - write
           - edit
+          - glob
+          - grep
           - str_replace_editor
         guardGit: true
         guardSystem: true

@@ -1,7 +1,7 @@
 {
   "name": "dsh-windows-workspace-guard",
-  "version": "0.9.0",
-  "description": "Guard DeepSeek Harness PowerShell and every official filesystem tool on Windows with workspace, credential, approval, and audit policy.",
+  "version": "1.0.0",
+  "description": "Guard DeepSeek Harness PowerShell, file, image, and search tools on Windows with workspace, credential, approval, and audit policy.",
   "author": "julescules",
   "homepage": "https://github.com/julescules/dsh-windows-workspace-guard#readme",
   "repository": {
@@ -60,8 +60,8 @@
   },
   "peerDependencies": {
     "@deepseek-ai/cordis": "^4.0.1",
-    "@deepseek-ai/dsh-settings": "^0.0.1-rc.1 || ^0.1.1-rc.1 || ^0.1.2-alpha.1",
-    "@deepseek-ai/dsh-tools": "^0.0.1-rc.1 || ^0.1.1-rc.1 || ^0.1.2-alpha.1",
+    "@deepseek-ai/dsh-settings": ">=0.1.2-alpha.2 <0.2.0",
+    "@deepseek-ai/dsh-tools": ">=0.1.2-alpha.2 <0.2.0",
     "@deepseek-ai/schemastery": "^3.18.1",
     "react": ">=19.0.0 <20.0.0"
   },
@@ -89,10 +89,6 @@
     "client": {
       "platform": "web",
       "inject": [
-        "@deepseek-ai/dsh-client-runtime",
-        "@deepseek-ai/dsh-client-locale",
-        "@deepseek-ai/dsh-client-ui-slots",
-        "@deepseek-ai/dsh-client-ui-settings",
         "@deepseek-ai/dsh-client-ui-settings-plugins"
       ]
     }

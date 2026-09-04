@@ -1,5 +1,4 @@
 import { defineTool } from '@deepseek-ai/dsh-tools'
-import { installSettingsSection, settingsNamespace } from '@deepseek-ai/dsh-settings'
 import Schema from '@deepseek-ai/schemastery'
 import { formatAnalysis } from './analyzer.js'
 import { appendAuditRecord, createAuditRecord } from './audit.js'
@@ -12,13 +11,13 @@ import { analyzeToolExecution } from './tool-adapters.js'
 
 export const name = 'dsh-windows-workspace-guard'
 export const inject = ['tools', 'settings']
-export const SETTINGS_NAMESPACE = settingsNamespace('windows-workspace-guard')
+export const SETTINGS_NAMESPACE = 'windows-workspace-guard'
 
 export const Config = Schema.object({
   enabled: Schema.boolean().default(true),
   mode: Schema.string().default('block'),
   reportOnly: Schema.boolean().default(false),
-  toolNames: Schema.array(Schema.string()).default(['pwsh', 'read', 'write', 'edit', 'str_replace_editor']),
+  toolNames: Schema.array(Schema.string()).default(['pwsh', 'read', 'read_image', 'write', 'edit', 'glob', 'grep', 'str_replace_editor']),
   workspaceRoots: Schema.array(Schema.string()).default([]),
   protectedPaths: Schema.array(Schema.string()).default([]),
   allowExact: Schema.array(Schema.string()).default([]),
@@ -149,7 +148,7 @@ async function writePendingAudit(pending, decision) {
 
 export function apply(ctx, config) {
   const source = createConfigSource(config)
-  installSettingsSection(ctx, SETTINGS_NAMESPACE, Config, config, {
+  ctx.settings.installSection(ctx, SETTINGS_NAMESPACE, Config, config, {
     setSource: (current) => { source.setSource(current) },
     onChange: () => {},
   })
@@ -212,9 +211,11 @@ export function apply(ctx, config) {
     name: 'windows_workspace_guard_check',
     description: 'Dry-runs an official PowerShell or filesystem tool call against Windows workspace and sensitive-data policy without executing it.',
     parameters: {
-      toolName: { type: 'string', enum: ['pwsh', 'read', 'write', 'edit', 'str_replace_editor'], description: 'Verified official tool schema to inspect. Defaults to pwsh.' },
+      toolName: { type: 'string', enum: ['pwsh', 'read', 'read_image', 'write', 'edit', 'glob', 'grep', 'str_replace_editor'], description: 'Verified official tool schema to inspect. Defaults to pwsh.' },
       command: { type: 'string', description: 'PowerShell command, or str_replace_editor operation: view/create/str_replace/insert.' },
       path: { type: 'string', description: 'File path for read/write/edit or an absolute path for str_replace_editor.' },
+      pattern: { type: 'string', description: 'Required pattern for glob or grep.' },
+      include: { type: 'string', description: 'Narrow file glob for grep; required by the default sensitive-data policy.' },
       cwd: { type: 'string', description: 'Working directory used to resolve relative paths.' },
     },
     output: {
@@ -227,8 +228,10 @@ export function apply(ctx, config) {
       const toolName = args.toolName || 'pwsh'
       const toolArguments = toolName === 'str_replace_editor'
         ? { command: args.command, path: args.path, workdir: cwd }
-        : ['read', 'write', 'edit'].includes(toolName)
+        : ['read', 'read_image', 'write', 'edit'].includes(toolName)
           ? { file_path: args.path, workdir: cwd }
+          : ['glob', 'grep'].includes(toolName)
+            ? { pattern: args.pattern, path: args.path, include: args.include, workdir: cwd }
           : { command: args.command, workdir: cwd }
       return await analyzeExecution({ name: toolName, arguments: toolArguments, agent: { cwd } }, active)
     },

@@ -81,6 +81,26 @@ test('adapts the official standard-preset read, write, and edit schemas', () => 
   assert.ok(missingPath.findings.some((item) => item.id === 'unsupported-tool-schema'))
 })
 
+test('adapts rc.1 image and search schemas without exposing search text', () => {
+  const image = analyzeToolExecution({ name: 'read_image', arguments: { file_path: 'D:\\work\\project\\ui\\title' } }, options)
+  assert.equal(image.status, 'PASS')
+
+  const glob = analyzeToolExecution({ name: 'glob', arguments: { pattern: '**/*.png', path: 'D:\\work\\project\\ui' } }, options)
+  assert.equal(glob.status, 'PASS')
+
+  const narrowGrep = analyzeToolExecution({ name: 'grep', arguments: { pattern: 'very private query', path: 'D:\\work\\project', include: '*.ks' } }, options)
+  assert.equal(narrowGrep.status, 'PASS')
+  assert.doesNotMatch(narrowGrep.commandPreview, /very private query/)
+
+  const broadGrep = analyzeToolExecution({ name: 'grep', arguments: { pattern: 'token', path: 'D:\\work\\project' } }, options)
+  assert.equal(broadGrep.hardBlock, true)
+  assert.ok(broadGrep.findings.some((item) => item.id === 'unbounded-sensitive-search'))
+
+  const secretGlob = analyzeToolExecution({ name: 'glob', arguments: { pattern: '**/.env*', path: 'D:\\work\\project' } }, options)
+  assert.equal(secretGlob.hardBlock, true)
+  assert.ok(secretGlob.findings.some((item) => item.id === 'sensitive-search-target'))
+})
+
 test('fails closed for configured tools without a verified schema', () => {
   const result = analyzeToolExecution({ name: 'mystery_writer', arguments: { path: 'D:\\work\\project\\x' } }, options)
   assert.equal(result.hardBlock, true)
@@ -89,11 +109,14 @@ test('fails closed for configured tools without a verified schema', () => {
 })
 
 test('reports coverage without claiming unknown tool schemas are protected', () => {
-  assert.deepEqual(coverageFacts({ toolNames: ['pwsh', 'read', 'write', 'edit', 'str_replace_editor', 'custom'] }), [
+  assert.deepEqual(coverageFacts({ toolNames: ['pwsh', 'read', 'read_image', 'write', 'edit', 'glob', 'grep', 'str_replace_editor', 'custom'] }), [
     { toolName: 'pwsh', adapter: 'powershell-command', covered: true },
     { toolName: 'read', adapter: 'official-filesystem-read', covered: true },
+    { toolName: 'read_image', adapter: 'official-filesystem-image-read', covered: true },
     { toolName: 'write', adapter: 'official-filesystem-write', covered: true },
     { toolName: 'edit', adapter: 'official-filesystem-edit', covered: true },
+    { toolName: 'glob', adapter: 'official-filesystem-glob', covered: true },
+    { toolName: 'grep', adapter: 'official-filesystem-grep', covered: true },
     { toolName: 'str_replace_editor', adapter: 'structured-file-editor', covered: true },
     { toolName: 'custom', adapter: 'unsupported', covered: false },
   ])

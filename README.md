@@ -14,7 +14,7 @@ Stop a Windows agent before it deletes originals, escapes the workspace, destroy
 ## Start in 30 seconds
 
 ```powershell
-dsh plugin --profile web add github:julescules/dsh-windows-workspace-guard#v0.9.0
+dsh plugin --profile web add github:julescules/dsh-windows-workspace-guard#v1.0.0
 dsh --profile web --dump-config
 dsh --profile web
 ```
@@ -27,15 +27,17 @@ to inspect this command without executing it:
 Get-Content -LiteralPath $env:DSH_HOME\.credentials.yaml
 ```
 
-## Why v0.9.0
+## Why v1.0.0
 
 ### Verified multi-tool boundary
 
-The default protected set follows both official agent presets: `pwsh`, the standard preset's `read` / `write` / `edit`, and the Minimal preset's `str_replace_editor`. Each adapter reads only the official path and operation fields, omits file content and replacement strings from policy previews, and applies the same workspace, immutable-path, existing-link, and sensitive-path rules.
+The default protected set follows the official rc.1 Windows/file surface: `pwsh`, `read`, extensionless-capable `read_image`, `write`, `edit`, `glob`, `grep`, and Minimal's `str_replace_editor`. Each adapter reads only the official path and operation fields, omits file content, search text, and replacement strings from policy previews, and applies the same workspace, immutable-path, existing-link, and sensitive-path rules.
 
 Configured tools without a verified argument adapter fail closed. Doctor reports every configured tool as `covered` or `unsupported`; the plugin never treats an unknown schema as PowerShell and calls it protected.
 
-Upgrades preserve live settings. If an older profile already stored a shorter `toolNames` list, add `read`, `write`, `edit`, and `str_replace_editor` in the settings card; Doctor will show the effective coverage.
+Upgrades preserve live settings. If an older profile already stored a shorter `toolNames` list, add `read_image`, `glob`, and `grep` in the settings card; Doctor will show the effective coverage.
+
+Official `grep` searches hidden and ignored files. With `guardSensitiveData` enabled, v1.0.0 requires a narrow `include` glob such as `*.js` or `*.ks`; an unbounded search fails closed before a hidden `.env` can be returned. Explicit credential-like paths and glob patterns are blocked too.
 
 ### Monotonic hard blocks
 
@@ -85,7 +87,7 @@ The DSH Web settings card updates these values live:
 ```yaml
 enabled: true
 mode: block               # block | ask | report
-toolNames: [pwsh, read, write, edit, str_replace_editor]
+toolNames: [pwsh, read, read_image, write, edit, glob, grep, str_replace_editor]
 workspaceRoots: []        # empty = current session cwd
 protectedPaths: []
 guardExistingLinks: true
@@ -105,7 +107,7 @@ The package stays outside Harness core and uses the official `dsh.bundle.patch`,
 ## Upgrade, disable, uninstall
 
 ```powershell
-dsh plugin --profile web add github:julescules/dsh-windows-workspace-guard#v0.9.0
+dsh plugin --profile web add github:julescules/dsh-windows-workspace-guard#v1.0.0
 dsh plugin --profile web list
 dsh plugin --help
 ```
@@ -125,8 +127,8 @@ Use the disable/remove command shown by `dsh plugin --help` for your Harness bui
 ```powershell
 npm run check
 npm pack --dry-run
-node scripts/build-release-metadata.mjs .\dsh-windows-workspace-guard-0.9.0.tgz .\builds\v0.9.0
-.\scripts\verify-release.ps1 -PackagePath .\dsh-windows-workspace-guard-0.9.0.tgz -ChecksumsPath .\builds\v0.9.0\SHA256SUMS
+node scripts/build-release-metadata.mjs .\dsh-windows-workspace-guard-1.0.0.tgz .\builds\v1.0.0
+.\scripts\verify-release.ps1 -PackagePath .\dsh-windows-workspace-guard-1.0.0.tgz -ChecksumsPath .\builds\v1.0.0\SHA256SUMS
 ```
 
 Each release ships a SHA-256 checksum and CycloneDX SBOM. The verifier reads files literally and makes no network request.

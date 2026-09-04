@@ -14,7 +14,7 @@
 ## 30 秒开始
 
 ```powershell
-dsh plugin --profile web add github:julescules/dsh-windows-workspace-guard#v0.9.0
+dsh plugin --profile web add github:julescules/dsh-windows-workspace-guard#v1.0.0
 dsh --profile web --dump-config
 dsh --profile web
 ```
@@ -27,15 +27,17 @@ dsh --profile web
 Get-Content -LiteralPath $env:DSH_HOME\.credentials.yaml
 ```
 
-## v0.9.0 的四个重点
+## v1.0.0 的重点
 
 ### 已验证的多工具边界
 
-默认覆盖官方两套 Agent 预设：`pwsh`、Standard 预设的 `read / write / edit`，以及 Minimal 预设的 `str_replace_editor`。适配器只读取官方路径和操作字段，不把文件正文、旧字符串或新字符串写入策略预览，并统一应用工作区、不可变路径、既有链接和凭据规则。
+默认覆盖官方 rc.1 的 Windows/文件工具面：`pwsh`、`read`、支持无扩展名图片的 `read_image`、`write`、`edit`、`glob`、`grep`，以及 Minimal 预设的 `str_replace_editor`。适配器只读取官方路径和操作字段，不把文件正文、搜索词、旧字符串或新字符串写入策略预览，并统一应用工作区、不可变路径、既有链接和凭据规则。
 
 用户配置但没有已验证参数适配器的工具会 fail closed。Doctor 会逐项显示 `covered` 或 `unsupported`，不会把未知参数格式冒充为 PowerShell 后宣称已保护。
 
-升级会保留现有实时设置。如果旧 Profile 已保存较短的 `toolNames`，请在设置卡中加入 `read`、`write`、`edit` 和 `str_replace_editor`；Doctor 会显示实际生效的覆盖范围。
+升级会保留现有实时设置。如果旧 Profile 已保存较短的 `toolNames`，请在设置卡中补上 `read_image`、`glob` 和 `grep`；Doctor 会显示实际生效的覆盖范围。
+
+官方 `grep` 会搜索隐藏文件和被忽略文件。启用 `guardSensitiveData` 时，v1.0.0 要求使用 `*.js`、`*.ks` 等窄范围 `include`；无范围搜索会在隐藏 `.env` 内容可能返回之前 fail closed。显式指向凭据文件的路径或 glob 也会被阻断。
 
 ### 单调强制阻断
 
@@ -85,7 +87,7 @@ DSH Web 设置卡可以实时修改：
 ```yaml
 enabled: true
 mode: block               # block | ask | report
-toolNames: [pwsh, read, write, edit, str_replace_editor]
+toolNames: [pwsh, read, read_image, write, edit, glob, grep, str_replace_editor]
 workspaceRoots: []        # 空数组表示当前 session cwd
 protectedPaths: []
 guardExistingLinks: true
@@ -105,7 +107,7 @@ auditFailClosed: false
 ## 升级、禁用、卸载
 
 ```powershell
-dsh plugin --profile web add github:julescules/dsh-windows-workspace-guard#v0.9.0
+dsh plugin --profile web add github:julescules/dsh-windows-workspace-guard#v1.0.0
 dsh plugin --profile web list
 dsh plugin --help
 ```
@@ -125,8 +127,8 @@ dsh plugin --help
 ```powershell
 npm run check
 npm pack --dry-run
-node scripts/build-release-metadata.mjs .\dsh-windows-workspace-guard-0.9.0.tgz .\builds\v0.9.0
-.\scripts\verify-release.ps1 -PackagePath .\dsh-windows-workspace-guard-0.9.0.tgz -ChecksumsPath .\builds\v0.9.0\SHA256SUMS
+node scripts/build-release-metadata.mjs .\dsh-windows-workspace-guard-1.0.0.tgz .\builds\v1.0.0
+.\scripts\verify-release.ps1 -PackagePath .\dsh-windows-workspace-guard-1.0.0.tgz -ChecksumsPath .\builds\v1.0.0\SHA256SUMS
 ```
 
 每个 Release 同时提供 SHA-256 与 CycloneDX SBOM。验证脚本使用 literal path，且不联网。
