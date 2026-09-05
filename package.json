@@ -1,6 +1,6 @@
 {
   "name": "dsh-windows-workspace-guard",
-  "version": "1.1.0",
+  "version": "1.1.1",
   "description": "Guard DeepSeek Harness PowerShell, file, image, and search tools on Windows with workspace, credential, approval, and audit policy.",
   "author": "julescules",
   "homepage": "https://github.com/julescules/dsh-windows-workspace-guard#readme",
@@ -48,6 +48,7 @@
     "CONTRIBUTING.md",
     "SECURITY.md",
     "docs/demo.svg",
+    "docs/demo.png",
     "LICENSE"
   ],
   "scripts": {

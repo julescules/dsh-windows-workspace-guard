@@ -1,35 +1,35 @@
-<svg xmlns="http://www.w3.org/2000/svg" width="1200" height="630" viewBox="0 0 1200 630" role="img" aria-labelledby="title desc">
-  <title id="title">Windows Workspace Guard synthetic terminal demo</title>
-  <desc id="desc">A terminal-style example showing official read, write, edit, PowerShell, and structured-editor protection with coverage diagnostics.</desc>
-  <defs>
-    <linearGradient id="bg" x1="0" y1="0" x2="1" y2="1"><stop offset="0" stop-color="#071521"/><stop offset="1" stop-color="#141633"/></linearGradient>
-    <linearGradient id="accent" x1="0" y1="0" x2="1" y2="0"><stop offset="0" stop-color="#42e0b5"/><stop offset="1" stop-color="#6aa8ff"/></linearGradient>
-    <filter id="shadow"><feDropShadow dx="0" dy="10" stdDeviation="18" flood-opacity=".4"/></filter>
-  </defs>
-  <rect width="1200" height="630" rx="28" fill="url(#bg)"/>
-  <circle cx="1110" cy="70" r="230" fill="#686eff" opacity=".09"/><circle cx="80" cy="610" r="270" fill="#34e3b1" opacity=".06"/>
-  <g font-family="Segoe UI, Noto Sans SC, sans-serif">
-    <text x="60" y="70" fill="#f7f8ff" font-size="38" font-weight="700">Windows Workspace Guard</text>
-    <text x="60" y="106" fill="#b8c0d2" font-size="19">Official Standard + Minimal tools · verified adapters · fail-closed gaps</text>
-    <rect x="60" y="128" width="1080" height="3" rx="2" fill="url(#accent)"/>
-    <rect x="950" y="54" width="190" height="42" rx="21" fill="#102b2c" stroke="#45dfb2"/><text x="1045" y="81" text-anchor="middle" fill="#61e6bc" font-size="15" font-weight="700">SYNTHETIC EXAMPLE</text>
-  </g>
-  <g filter="url(#shadow)">
-    <rect x="60" y="160" width="1080" height="405" rx="18" fill="#080d16" stroke="#29364b" stroke-width="2"/>
-    <rect x="60" y="160" width="1080" height="42" rx="18" fill="#151d2b"/><rect x="60" y="184" width="1080" height="18" fill="#151d2b"/>
-    <circle cx="87" cy="181" r="6" fill="#ff6b77"/><circle cx="108" cy="181" r="6" fill="#ffcc67"/><circle cx="129" cy="181" r="6" fill="#55df9b"/>
-    <text x="600" y="187" text-anchor="middle" fill="#8792a7" font-family="Cascadia Mono, Consolas, monospace" font-size="14">DeepSeek Harness · multi-tool policy coverage</text>
-  </g>
-  <g font-family="Cascadia Mono, Consolas, monospace" font-size="17">
-    <text x="88" y="239" fill="#68d8ff">TOOL&gt;</text><text x="162" y="239" fill="#eef2fa">read { file_path: D:\project\.env }</text>
-    <text x="88" y="274" fill="#ff7887" font-weight="700">HARD BLOCK</text><text x="222" y="274" fill="#a1aabc">monotonic ctx.tools.guard</text>
-    <text x="88" y="307" fill="#ff8f9c">sensitive-path-read</text><text x="322" y="307" fill="#cad0dc">structured path checked · content omitted</text>
-    <text x="88" y="340" fill="#8c97aa">audit</text><text x="183" y="340" fill="#cad0dc">recorded after final denial · command redacted</text>
-    <line x1="88" y1="373" x2="1112" y2="373" stroke="#283047"/>
-    <text x="88" y="412" fill="#68d8ff">DSH&gt;</text><text x="151" y="412" fill="#eef2fa">windows_workspace_guard_doctor</text>
-    <text x="88" y="447" fill="#5ee2ad" font-weight="700">PASS</text><text x="151" y="447" fill="#a1aabc">read-only posture report</text>
-    <text x="88" y="480" fill="#5ee2ad">PASS</text><text x="151" y="480" fill="#cad0dc">pwsh · powershell-command adapter</text>
-    <text x="88" y="513" fill="#5ee2ad">PASS</text><text x="151" y="513" fill="#cad0dc">read / write / edit / str_replace_editor · content omitted</text>
-  </g>
-  <g font-family="Segoe UI, Noto Sans SC, sans-serif" font-size="15"><text x="60" y="602" fill="#909caf">No network calls · SHA-256 + CycloneDX SBOM · PASS / ASK / HARD BLOCK</text><text x="1140" y="602" text-anchor="end" fill="#747f94">dshbase verified</text></g>
-</svg>
+<svg xmlns="http://www.w3.org/2000/svg" width="1440" height="810" viewBox="0 0 1440 810" role="img" aria-labelledby="title desc">
+<title id="title">Windows Workspace Guard 1.1.1</title><desc id="desc">检查操作 · 保护目录 · 看懂拦截。功能示意图，非软件截图。</desc>
+<rect width="1440" height="810" rx="28" fill="#101725"/>
+<circle cx="1390" cy="40" r="270" fill="#55e0ba" opacity=".07"/>
+<g font-family="Segoe UI, Microsoft YaHei, sans-serif">
+<text x="72" y="80" fill="#55e0ba" font-size="19" letter-spacing="3">DEEPSEEK HARNESS / COMMUNITY PLUGIN</text>
+<text x="72" y="157" fill="#f5f7fb" font-size="49" font-weight="700">Windows Workspace Guard</text>
+<text x="72" y="212" fill="#bec9db" font-size="28">检查操作 · 保护目录 · 看懂拦截</text>
+<rect x="72" y="253" width="1296" height="2" fill="#344257"/>
+<g transform="translate(72,300)">
+<rect width="416" height="270" rx="20" fill="#1b2638" stroke="#35435a"/>
+<text x="28" y="49" fill="#55e0ba" font-size="18" font-weight="600">01 / PREVIEW</text>
+<text x="28" y="112" fill="#fff" font-size="27" font-weight="700">执行前先检查</text>
+<text x="28" y="165" fill="#bac6d8" font-size="19">PASS  /  ASK  /  HARD BLOCK</text>
+<rect x="28" y="210" width="66" height="5" rx="2" fill="#55e0ba"/>
+</g>
+<g transform="translate(512,300)">
+<rect width="416" height="270" rx="20" fill="#1b2638" stroke="#35435a"/>
+<text x="28" y="49" fill="#55e0ba" font-size="18" font-weight="600">02 / PROTECT</text>
+<text x="28" y="112" fill="#fff" font-size="27" font-weight="700">覆盖 8 种官方工具</text>
+<text x="28" y="165" fill="#bac6d8" font-size="19">PowerShell · 文件 · 图片 · 搜索</text>
+<rect x="28" y="210" width="66" height="5" rx="2" fill="#55e0ba"/>
+</g>
+<g transform="translate(952,300)">
+<rect width="416" height="270" rx="20" fill="#1b2638" stroke="#35435a"/>
+<text x="28" y="49" fill="#55e0ba" font-size="18" font-weight="600">03 / EXPLAIN</text>
+<text x="28" y="112" fill="#fff" font-size="27" font-weight="700">把日志变成可读结果</text>
+<text x="28" y="165" fill="#bac6d8" font-size="19">审批统计 · 高频规则 · 损坏记录</text>
+<rect x="28" y="210" width="66" height="5" rx="2" fill="#55e0ba"/>
+</g>
+<text x="72" y="640" fill="#55e0ba" font-size="25" font-weight="600">有边界的审计读取：32 MiB / 100,000 条记录</text>
+<text x="72" y="687" fill="#bbc6d5" font-size="21">汇总不返回命令与路径 · 需先启用审计日志</text>
+<text x="72" y="762" fill="#8898af" font-size="17">v1.1.1 · 非官方社区插件 · 功能示意图 / NOT A SCREENSHOT</text>
+<text x="1368" y="762" text-anchor="end" fill="#8898af" font-size="17">julescules / GitHub</text>
+</g></svg>

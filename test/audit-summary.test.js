@@ -17,5 +17,7 @@ test('aggregate repeated findings without exporting command or path data; report
     assert.equal(result.findings['secret-path'], 1)
     assert.ok(!JSON.stringify(result).includes('PRIVATE'))
     assert.equal((await summarizeAudit(file, { maxRecords: 1 })).truncated, true)
+    await assert.rejects(summarizeAudit(file, { maxBytes: 1 }), { code: 'AUDIT_SIZE_LIMIT' })
+    await assert.rejects(summarizeAudit(file, { maxRecords: 0 }), RangeError)
   } finally { await rm(dir, { recursive: true, force: true }) }
 })

@@ -1,12 +1,20 @@
 import { createReadStream } from 'node:fs'
+import { stat } from 'node:fs/promises'
 import { createInterface } from 'node:readline'
 import { pathToFileURL } from 'node:url'
 
 // Only aggregate allowlisted fields: never return commands, cwd, or targets.
-export async function summarizeAudit(file, { maxRecords = 100000 } = {}) {
+export async function summarizeAudit(file, { maxRecords = 100000, maxBytes = 32 * 1024 * 1024 } = {}) {
+  if (!Number.isSafeInteger(maxRecords) || maxRecords < 1 || !Number.isSafeInteger(maxBytes) || maxBytes < 1) throw new RangeError('Invalid audit limit')
+  const info = await stat(file)
+  if (!info.isFile() || info.size > maxBytes) {
+    const error = new Error('Audit must be a regular file within the byte limit')
+    error.code = 'AUDIT_SIZE_LIMIT'
+    throw error
+  }
   const report = { schema: 'windows-guard-audit-summary/v1', records: 0, malformed: 0, truncated: false, decisions: {}, findings: {} }
   const counts = new Map(), decisions = new Map()
-  const stream = createReadStream(file, { encoding: 'utf8' })
+  const stream = createReadStream(file, { encoding: 'utf8', end: maxBytes - 1 })
   const lines = createInterface({ input: stream, crlfDelay: Infinity })
   try {
     for await (const line of lines) {
@@ -24,6 +32,7 @@ export async function summarizeAudit(file, { maxRecords = 100000 } = {}) {
     }
   } finally { lines.close(); stream.destroy() }
   report.decisions = Object.fromEntries(decisions)
+  if ((await stat(file)).size > info.size) report.truncated = true
   report.findings = Object.fromEntries([...counts].sort((a, b) => b[1] - a[1] || a[0].localeCompare(b[0])))
   return report
 }
