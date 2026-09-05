@@ -2,6 +2,7 @@ import { defineTool } from '@deepseek-ai/dsh-tools'
 import Schema from '@deepseek-ai/schemastery'
 import { formatAnalysis } from './analyzer.js'
 import { appendAuditRecord, createAuditRecord } from './audit.js'
+import { summarizeAudit } from './audit-summary.js'
 import { createConfigSource, guardedToolNames } from './config-source.js'
 import { formatDoctorReport, runWindowsGuardDoctor } from './doctor.js'
 import { decide, normalizeMode } from './policy.js'
@@ -234,6 +235,22 @@ export function apply(ctx, config) {
             ? { pattern: args.pattern, path: args.path, include: args.include, workdir: cwd }
           : { command: args.command, workdir: cwd }
       return await analyzeExecution({ name: toolName, arguments: toolArguments, agent: { cwd } }, active)
+    },
+  }))
+
+  ctx.tools.register(defineTool({
+    name: 'windows_workspace_guard_audit_summary',
+    description: 'Summarizes the configured guard audit log: decision totals, frequent rule IDs, malformed rows and truncation. Does not return commands or paths.',
+    parameters: {},
+    output: {
+      schema: { type: 'object', properties: { summary: { type: 'string', required: true } }, additionalProperties: false },
+      render: (_args, value) => [{ type: 'text', text: value.summary }],
+    },
+    async execute() {
+      const auditPath = source.get().auditPath
+      if (!auditPath) return { summary: 'Audit logging is disabled. Configure auditPath to collect future decisions; no past activity can be reconstructed.' }
+      try { return { summary: JSON.stringify(await summarizeAudit(auditPath), null, 2) } }
+      catch (error) { return { summary: `Audit summary unavailable: ${error.code || error.name}` } }
     },
   }))
 

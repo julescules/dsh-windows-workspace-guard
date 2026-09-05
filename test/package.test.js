@@ -9,7 +9,7 @@ test('declares the official dsh bundle manifest shape', async () => {
   assert.equal(pkg.dsh.bundle.patch, './cordis.patch.yml')
   assert.equal(pkg.type, 'module')
   assert.equal(pkg.main, 'index.js')
-  assert.equal(pkg.version, '1.0.0')
+  assert.equal(pkg.version, '1.1.0')
   assert.equal(pkg.exports['./client'], './client.js')
   assert.equal(pkg.exports['./config-source'], './config-source.js')
   assert.equal(pkg.exports['./doctor'], './doctor.js')
