@@ -1,6 +1,8 @@
 # DeepSeek Harness Windows Workspace Guard
 
-本版更新：审计日志增加 32 MiB 文件上限，明确拒绝超大文件和无效限制；演示图同步更新。
+本版更新：审计汇总支持按时间范围与决策筛选，明确显示匹配、排除及时间戳无效的记录数量。
+
+> 兼容性：本维护版本面向 DSH 0.1.2-rc.1。DSH 0.2.1-rc.2 已移除 settings.installSection，本 Windows 插件尚不支持该宿主；设置接口和界面仍需迁移，依赖上限继续保留在 0.2.0 以下。
 
 
 **让 Windows Agent 的操作有边界，让“为什么被拦截”有答案。**
@@ -15,7 +17,16 @@
 
 无需模型也可在插件目录运行：`node audit-summary.js D:\project\logs\guard.jsonl`。
 
-安装本版：`dsh plugin --profile web add github:julescules/dsh-windows-workspace-guard#v1.1.1`，然后重启 DSH。
+安装本版：`dsh plugin --profile web add github:julescules/dsh-windows-workspace-guard#v1.2.0`，然后重启 DSH。
+
+
+### 按时间和决策定位拦截
+
+```powershell
+node audit-summary.js D:\project\logs\guard.jsonl --since 2026-10-18T00:00:00Z --until 2026-10-18T23:59:59Z --decision blocked-hard
+```
+
+Agent 工具同样接受 `since`、`until`、`decision`。时间必须带时区，起止均包含边界。`records` 是扫描到的有效记录数，`matched` 才是筛选结果；时间筛选会排除缺失或无效时间戳，并用 `invalidTimestamps` 单独计数。32 MiB / 10 万条限制仍作用于扫描输入，筛选不会绕过限制。无筛选时保留原来的汇总行为。
 
 中文 | [English](README.md)
 
@@ -31,7 +42,7 @@
 ## 30 秒开始
 
 ```powershell
-dsh plugin --profile web add github:julescules/dsh-windows-workspace-guard#v1.1.1
+dsh plugin --profile web add github:julescules/dsh-windows-workspace-guard#v1.2.0
 dsh --profile web --dump-config
 dsh --profile web
 ```
@@ -44,7 +55,7 @@ dsh --profile web
 Get-Content -LiteralPath $env:DSH_HOME\.credentials.yaml
 ```
 
-## v1.1.1 的重点
+## v1.2.0 的重点
 
 ### 已验证的多工具边界
 
@@ -54,7 +65,7 @@ Get-Content -LiteralPath $env:DSH_HOME\.credentials.yaml
 
 升级会保留现有实时设置。如果旧 Profile 已保存较短的 `toolNames`，请在设置卡中补上 `read_image`、`glob` 和 `grep`；Doctor 会显示实际生效的覆盖范围。
 
-官方 `grep` 会搜索隐藏文件和被忽略文件。启用 `guardSensitiveData` 时，v1.1.1 要求使用 `*.js`、`*.ks` 等窄范围 `include`；无范围搜索会在隐藏 `.env` 内容可能返回之前 fail closed。显式指向凭据文件的路径或 glob 也会被阻断。
+官方 `grep` 会搜索隐藏文件和被忽略文件。启用 `guardSensitiveData` 时，v1.2.0 要求使用 `*.js`、`*.ks` 等窄范围 `include`；无范围搜索会在隐藏 `.env` 内容可能返回之前 fail closed。显式指向凭据文件的路径或 glob 也会被阻断。
 
 ### 单调强制阻断
 
@@ -124,7 +135,7 @@ auditFailClosed: false
 ## 升级、禁用、卸载
 
 ```powershell
-dsh plugin --profile web add github:julescules/dsh-windows-workspace-guard#v1.1.1
+dsh plugin --profile web add github:julescules/dsh-windows-workspace-guard#v1.2.0
 dsh plugin --profile web list
 dsh plugin --help
 ```
@@ -144,8 +155,8 @@ dsh plugin --help
 ```powershell
 npm run check
 npm pack --dry-run
-node scripts/build-release-metadata.mjs .\dsh-windows-workspace-guard-1.1.1.tgz .\builds\v1.1.1
-.\scripts\verify-release.ps1 -PackagePath .\dsh-windows-workspace-guard-1.1.1.tgz -ChecksumsPath .\builds\v1.1.1\SHA256SUMS
+node scripts/build-release-metadata.mjs .\dsh-windows-workspace-guard-1.2.0.tgz .\builds\v1.2.0
+.\scripts\verify-release.ps1 -PackagePath .\dsh-windows-workspace-guard-1.2.0.tgz -ChecksumsPath .\builds\v1.2.0\SHA256SUMS
 ```
 
 每个 Release 同时提供 SHA-256 与 CycloneDX SBOM。验证脚本使用 literal path，且不联网。
@@ -165,4 +176,4 @@ node scripts/build-release-metadata.mjs .\dsh-windows-workspace-guard-1.1.1.tgz 
 
 [MIT](LICENSE)
 
-兼容性：已在 DSH 0.1.2-rc.1 运行验证。官方 GitHub 已发布 0.1.3-alpha.1，但截至 2026-09-06 对应 npm 包未能获取，尚未完成该 alpha 的运行验证。
+兼容性：本维护版本面向 DSH 0.1.2-rc.1。DSH 0.2.1-rc.2 已移除 settings.installSection，本 Windows 插件尚不支持该宿主；设置接口和界面仍需迁移，依赖上限继续保留在 0.2.0 以下。

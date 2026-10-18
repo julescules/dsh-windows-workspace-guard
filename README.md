@@ -1,6 +1,8 @@
 # Windows Workspace Guard for DeepSeek Harness
 
-This release caps audit files at 32 MiB, rejects invalid limits, and refreshes the visual walkthrough.
+Filter audit summaries by time range and decision, with explicit matched, excluded, and invalid-timestamp counts.
+
+> Compatibility: this maintenance release targets DSH 0.1.2-rc.1. DSH 0.2.1-rc.2 removes settings.installSection, so this Windows plugin does not support that host yet. Its settings integration and UI require migration; the peer dependency bound remains below 0.2.0.
 
 **Understand what your Windows agent is about to change—and why a call was blocked.**
 
@@ -10,13 +12,22 @@ This release caps audit files at 32 MiB, rejects invalid limits, and refreshes t
 | Protection seems incomplete after an upgrade | “Run windows_workspace_guard_doctor and explain uncovered tools.” |
 | Too many blocks, no clear explanation | “Run windows_workspace_guard_audit_summary and show the most frequent rule IDs.” |
 
-### New in v1.1.1: make audit logs useful
+### New in v1.2.0: make audit logs useful
 
 The new `windows_workspace_guard_audit_summary` tool reads the configured audit log and returns decision totals and frequent rule IDs. It excludes commands, working directories, and target paths. Malformed rows and the 100,000-record limit are reported explicitly so partial evidence is visible.
 
 Set `auditPath` to a project-owned JSONL path in the plugin settings to collect future decisions. Logging is opt-in; the tool cannot reconstruct old activity. You can also run `node audit-summary.js D:\project\logs\guard.jsonl` from the package directory without a model or API key.
 
 Use the summary to identify a rule, then inspect that specific case with the dry-run tool before changing policy.
+
+
+### Investigate a time window or decision
+
+```powershell
+node audit-summary.js D:\project\logs\guard.jsonl --since 2026-10-18T00:00:00Z --until 2026-10-18T23:59:59Z --decision blocked-hard
+```
+
+The agent tool accepts the same `since`, `until`, and `decision` parameters. Timestamps require an explicit timezone; both bounds are inclusive. `records` counts valid scanned rows; `matched` counts selected rows. Time filtering excludes missing or invalid timestamps and counts them in `invalidTimestamps`. The 32 MiB / 100,000-record bounds still apply to scanned input, including excluded rows. Calls without filters retain the original aggregate behavior.
 
 [中文](README.zh.md) | English
 
@@ -32,7 +43,7 @@ Stop a Windows agent before it deletes originals, escapes the workspace, destroy
 ## Start in 30 seconds
 
 ```powershell
-dsh plugin --profile web add github:julescules/dsh-windows-workspace-guard#v1.1.1
+dsh plugin --profile web add github:julescules/dsh-windows-workspace-guard#v1.2.0
 dsh --profile web --dump-config
 dsh --profile web
 ```
@@ -45,7 +56,7 @@ to inspect this command without executing it:
 Get-Content -LiteralPath $env:DSH_HOME\.credentials.yaml
 ```
 
-## Why v1.1.1
+## Why v1.2.0
 
 ### Verified multi-tool boundary
 
@@ -55,7 +66,7 @@ Configured tools without a verified argument adapter fail closed. Doctor reports
 
 Upgrades preserve live settings. If an older profile already stored a shorter `toolNames` list, add `read_image`, `glob`, and `grep` in the settings card; Doctor will show the effective coverage.
 
-Official `grep` searches hidden and ignored files. With `guardSensitiveData` enabled, v1.1.1 requires a narrow `include` glob such as `*.js` or `*.ks`; an unbounded search fails closed before a hidden `.env` can be returned. Explicit credential-like paths and glob patterns are blocked too.
+Official `grep` searches hidden and ignored files. With `guardSensitiveData` enabled, v1.2.0 requires a narrow `include` glob such as `*.js` or `*.ks`; an unbounded search fails closed before a hidden `.env` can be returned. Explicit credential-like paths and glob patterns are blocked too.
 
 ### Monotonic hard blocks
 
@@ -125,7 +136,7 @@ The package stays outside Harness core and uses the official `dsh.bundle.patch`,
 ## Upgrade, disable, uninstall
 
 ```powershell
-dsh plugin --profile web add github:julescules/dsh-windows-workspace-guard#v1.1.1
+dsh plugin --profile web add github:julescules/dsh-windows-workspace-guard#v1.2.0
 dsh plugin --profile web list
 dsh plugin --help
 ```
@@ -145,8 +156,8 @@ Use the disable/remove command shown by `dsh plugin --help` for your Harness bui
 ```powershell
 npm run check
 npm pack --dry-run
-node scripts/build-release-metadata.mjs .\dsh-windows-workspace-guard-1.1.1.tgz .\builds\v1.1.1
-.\scripts\verify-release.ps1 -PackagePath .\dsh-windows-workspace-guard-1.1.1.tgz -ChecksumsPath .\builds\v1.1.1\SHA256SUMS
+node scripts/build-release-metadata.mjs .\dsh-windows-workspace-guard-1.2.0.tgz .\builds\v1.2.0
+.\scripts\verify-release.ps1 -PackagePath .\dsh-windows-workspace-guard-1.2.0.tgz -ChecksumsPath .\builds\v1.2.0\SHA256SUMS
 ```
 
 Each release ships a SHA-256 checksum and CycloneDX SBOM. The verifier reads files literally and makes no network request.
@@ -166,4 +177,4 @@ See [CONTRIBUTING.md](CONTRIBUTING.md) and [SECURITY.md](SECURITY.md).
 
 [MIT](LICENSE)
 
-Compatibility: runtime-validated on DSH 0.1.2-rc.1. Upstream 0.1.3-alpha.1 is published on GitHub; its npm package was unavailable on 2026-09-06, so runtime compatibility with that alpha is not yet claimed.
+Compatibility: this maintenance release targets DSH 0.1.2-rc.1. DSH 0.2.1-rc.2 removes settings.installSection, so this Windows plugin does not support that host yet. Its settings integration and UI require migration; the peer dependency bound remains below 0.2.0.

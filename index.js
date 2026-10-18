@@ -241,15 +241,19 @@ export function apply(ctx, config) {
   ctx.tools.register(defineTool({
     name: 'windows_workspace_guard_audit_summary',
     description: 'Summarizes the configured guard audit log: decision totals, frequent rule IDs, malformed rows and truncation. Does not return commands or paths.',
-    parameters: {},
+    parameters: {
+      since: { type: 'string', description: 'Inclusive start timestamp in ISO 8601 with timezone.' },
+      until: { type: 'string', description: 'Inclusive end timestamp in ISO 8601 with timezone.' },
+      decision: { type: 'string', description: 'Filter by allowed, blocked, blocked-hard, reported, approval-requested, approved-dispatch, or approval-rejected.' },
+    },
     output: {
       schema: { type: 'object', properties: { summary: { type: 'string', required: true } }, additionalProperties: false },
       render: (_args, value) => [{ type: 'text', text: value.summary }],
     },
-    async execute() {
+    async execute(args = {}) {
       const auditPath = source.get().auditPath
       if (!auditPath) return { summary: 'Audit logging is disabled. Configure auditPath to collect future decisions; no past activity can be reconstructed.' }
-      try { return { summary: JSON.stringify(await summarizeAudit(auditPath), null, 2) } }
+      try { return { summary: JSON.stringify(await summarizeAudit(auditPath, { since: args.since, until: args.until, decision: args.decision }), null, 2) } }
       catch (error) { return { summary: `Audit summary unavailable: ${error.code || error.name}` } }
     },
   }))
