@@ -2,7 +2,7 @@ import { DEFAULT_GUARDED_TOOL_NAMES } from './tool-adapters.js'
 
 /** Mutable pointer to the configuration currently authoritative for the plugin. */
 export function createConfigSource(entry) {
-  let current = () => entry
+  let current = () => typeof entry?.get === 'function' ? entry.get() : entry
   return {
     get: () => current(),
     setSource(next) {

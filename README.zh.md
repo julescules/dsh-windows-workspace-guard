@@ -1,8 +1,8 @@
 # DeepSeek Harness Windows Workspace Guard
 
-本版更新：审计汇总支持按时间范围与决策筛选，明确显示匹配、排除及时间戳无效的记录数量。
+本版更新：迁移到 DSH 0.2.x 原生设置表单，工作区和模式修改实时生效，并校验模式取值。
 
-> 兼容性：本维护版本面向 DSH 0.1.2-rc.1。DSH 0.2.1-rc.2 已移除 settings.installSection，本 Windows 插件尚不支持该宿主；设置接口和界面仍需迁移，依赖上限继续保留在 0.2.0 以下。
+> 兼容性：v2 要求 DSH 0.2.1-rc.3 或后续 0.2.x 版本。DSH 0.1.2-rc.1 用户请保留 v1.2.0。设置迁移到宿主原生表单，配置修改立即生效；不再加载旧版自定义设置卡片。
 
 
 **让 Windows Agent 的操作有边界，让“为什么被拦截”有答案。**
@@ -17,7 +17,7 @@
 
 无需模型也可在插件目录运行：`node audit-summary.js D:\project\logs\guard.jsonl`。
 
-安装本版：`dsh plugin --profile web add github:julescules/dsh-windows-workspace-guard#v1.2.0`，然后重启 DSH。
+安装本版：`dsh plugin --profile web add github:julescules/dsh-windows-workspace-guard#v2.0.0`，然后重启 DSH。
 
 
 ### 按时间和决策定位拦截
@@ -42,7 +42,7 @@ Agent 工具同样接受 `since`、`until`、`decision`。时间必须带时区�
 ## 30 秒开始
 
 ```powershell
-dsh plugin --profile web add github:julescules/dsh-windows-workspace-guard#v1.2.0
+dsh plugin --profile web add github:julescules/dsh-windows-workspace-guard#v2.0.0
 dsh --profile web --dump-config
 dsh --profile web
 ```
@@ -55,7 +55,7 @@ dsh --profile web
 Get-Content -LiteralPath $env:DSH_HOME\.credentials.yaml
 ```
 
-## v1.2.0 的重点
+## 防护覆盖范围
 
 ### 已验证的多工具边界
 
@@ -63,7 +63,7 @@ Get-Content -LiteralPath $env:DSH_HOME\.credentials.yaml
 
 用户配置但没有已验证参数适配器的工具会 fail closed。Doctor 会逐项显示 `covered` 或 `unsupported`，不会把未知参数格式冒充为 PowerShell 后宣称已保护。
 
-升级会保留现有实时设置。如果旧 Profile 已保存较短的 `toolNames`，请在设置卡中补上 `read_image`、`glob` 和 `grep`；Doctor 会显示实际生效的覆盖范围。
+以 Profile 配置为准；升级前需将旧设置分区的覆盖值复制到 Profile。如果 `toolNames` 列表较短，请在原生表单补上 `read_image`、`glob` 和 `grep`；Doctor 会显示实际生效的覆盖范围。
 
 官方 `grep` 会搜索隐藏文件和被忽略文件。启用 `guardSensitiveData` 时，v1.2.0 要求使用 `*.js`、`*.ks` 等窄范围 `include`；无范围搜索会在隐藏 `.env` 内容可能返回之前 fail closed。显式指向凭据文件的路径或 glob 也会被阻断。
 
@@ -110,7 +110,7 @@ Get-Content -LiteralPath $env:DSH_HOME\.credentials.yaml
 
 ## 主要设置
 
-DSH Web 设置卡可以实时修改：
+DSH 原生插件设置表单可以实时修改：
 
 ```yaml
 enabled: true
@@ -135,7 +135,7 @@ auditFailClosed: false
 ## 升级、禁用、卸载
 
 ```powershell
-dsh plugin --profile web add github:julescules/dsh-windows-workspace-guard#v1.2.0
+dsh plugin --profile web add github:julescules/dsh-windows-workspace-guard#v2.0.0
 dsh plugin --profile web list
 dsh plugin --help
 ```
@@ -155,8 +155,8 @@ dsh plugin --help
 ```powershell
 npm run check
 npm pack --dry-run
-node scripts/build-release-metadata.mjs .\dsh-windows-workspace-guard-1.2.0.tgz .\builds\v1.2.0
-.\scripts\verify-release.ps1 -PackagePath .\dsh-windows-workspace-guard-1.2.0.tgz -ChecksumsPath .\builds\v1.2.0\SHA256SUMS
+node scripts/build-release-metadata.mjs .\dsh-windows-workspace-guard-2.0.0.tgz .\builds\v2.0.0
+.\scripts\verify-release.ps1 -PackagePath .\dsh-windows-workspace-guard-2.0.0.tgz -ChecksumsPath .\builds\v2.0.0\SHA256SUMS
 ```
 
 每个 Release 同时提供 SHA-256 与 CycloneDX SBOM。验证脚本使用 literal path，且不联网。
@@ -176,4 +176,6 @@ node scripts/build-release-metadata.mjs .\dsh-windows-workspace-guard-1.2.0.tgz 
 
 [MIT](LICENSE)
 
-兼容性：本维护版本面向 DSH 0.1.2-rc.1。DSH 0.2.1-rc.2 已移除 settings.installSection，本 Windows 插件尚不支持该宿主；设置接口和界面仍需迁移，依赖上限继续保留在 0.2.0 以下。
+兼容性：v2 要求 DSH 0.2.1-rc.3 或后续 0.2.x 版本。DSH 0.1.2-rc.1 用户请保留 v1.2.0。设置迁移到宿主原生表单，配置修改立即生效；不再加载旧版自定义设置卡片。
+
+宿主回归：按 `.github/workflows/ci.yml` 安装固定版本依赖，执行 `npm run test:host`。已验证 rc.3 实际 Loader/Settings/Tools 的配置实时更新、插件不重挂载、过期提交与无效模式拒绝；配置编辑器使用内存适配器，尚未验证浏览器渲染及模型执行。旧设置分区中的覆盖值需在升级时复制到 profile 配置，v2 不自动导入旧设置文件。

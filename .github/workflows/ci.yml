@@ -17,6 +17,10 @@ jobs:
           node-version: '24'
       - name: Verify policy and package
         run: npm run check
+      - name: Verify real DSH settings contract
+        run: |
+          npm install --no-save --package-lock=false --ignore-scripts @deepseek-ai/dsh-tools@0.2.1-rc.3 @deepseek-ai/dsh-settings@0.2.1-rc.3 @deepseek-ai/cordis-plugin-loader@1.0.6
+          npm run test:host
       - name: Inspect packed file allowlist
         run: npm pack --dry-run
       - name: Build and verify release metadata

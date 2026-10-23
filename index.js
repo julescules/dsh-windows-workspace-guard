@@ -16,7 +16,7 @@ export const SETTINGS_NAMESPACE = 'windows-workspace-guard'
 
 export const Config = Schema.object({
   enabled: Schema.boolean().default(true),
-  mode: Schema.string().default('block'),
+  mode: Schema.union(['block', 'ask', 'report']).default('block'),
   reportOnly: Schema.boolean().default(false),
   toolNames: Schema.array(Schema.string()).default(['pwsh', 'read', 'read_image', 'write', 'edit', 'glob', 'grep', 'str_replace_editor']),
   workspaceRoots: Schema.array(Schema.string()).default([]),
@@ -35,7 +35,7 @@ export const Config = Schema.object({
   auditPath: Schema.string().default(''),
   auditIncludeCommand: Schema.boolean().default(false),
   auditFailClosed: Schema.boolean().default(false),
-})
+}).volatile()
 
 function outputSchema() {
   return {
@@ -149,10 +149,9 @@ async function writePendingAudit(pending, decision) {
 
 export function apply(ctx, config) {
   const source = createConfigSource(config)
-  ctx.settings.installSection(ctx, SETTINGS_NAMESPACE, Config, config, {
-    setSource: (current) => { source.setSource(current) },
-    onChange: () => {},
-  })
+  // DSH 0.2.1 projects volatile Config fields into its native settings page.
+  // Keep reading the live value; never retain a startup snapshot.
+  ctx.effect(() => ctx.settings.configure({ auto: true }))
   const monotonic = installMonotonicGuard(ctx, source)
   const pendingAudits = new Map()
 

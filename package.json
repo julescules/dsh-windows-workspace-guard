@@ -1,6 +1,6 @@
 {
   "name": "dsh-windows-workspace-guard",
-  "version": "1.2.0",
+  "version": "2.0.0",
   "description": "Guard DeepSeek Harness PowerShell, file, image, and search tools on Windows with workspace, credential, approval, and audit policy.",
   "author": "julescules",
   "homepage": "https://github.com/julescules/dsh-windows-workspace-guard#readme",
@@ -15,7 +15,6 @@
   "main": "index.js",
   "exports": {
     ".": "./index.js",
-    "./client": "./client.js",
     "./analyzer": "./analyzer.js",
     "./audit": "./audit.js",
     "./config-source": "./config-source.js",
@@ -29,7 +28,6 @@
   },
   "files": [
     "index.js",
-    "client.js",
     "analyzer.js",
     "audit.js",
     "audit-summary.js",
@@ -53,19 +51,19 @@
   ],
   "scripts": {
     "test": "node --test",
-    "check": "node --check index.js && node --check client.js && node --check analyzer.js && node --check audit.js && node --check config-source.js && node --check doctor.js && node --check policy.js && node --check path-guard.js && node --check runtime-guard.js && node --check sensitive.js && node --check tool-adapters.js && npm test",
+    "check": "node --check index.js && node --check analyzer.js && node --check audit.js && node --check config-source.js && node --check doctor.js && node --check policy.js && node --check path-guard.js && node --check runtime-guard.js && node --check sensitive.js && node --check tool-adapters.js && npm test",
     "pack:dry": "npm pack --dry-run",
-    "release:metadata": "node scripts/build-release-metadata.mjs"
+    "release:metadata": "node scripts/build-release-metadata.mjs",
+    "test:host": "node scripts/verify-host.mjs"
   },
   "engines": {
     "node": "^22.19.0 || >=24.0.0"
   },
   "peerDependencies": {
-    "@deepseek-ai/cordis": "^4.0.1",
-    "@deepseek-ai/dsh-settings": ">=0.1.2-alpha.2 <0.2.0",
-    "@deepseek-ai/dsh-tools": ">=0.1.2-alpha.2 <0.2.0",
-    "@deepseek-ai/schemastery": "^3.18.1",
-    "react": ">=19.0.0 <20.0.0"
+    "@deepseek-ai/cordis": "~4.0.5",
+    "@deepseek-ai/dsh-settings": ">=0.2.1-rc.3 <0.3.0",
+    "@deepseek-ai/dsh-tools": ">=0.2.1-rc.3 <0.3.0",
+    "@deepseek-ai/schemastery": "~3.18.5"
   },
   "peerDependenciesMeta": {
     "@deepseek-ai/cordis": {
@@ -79,20 +77,11 @@
     },
     "@deepseek-ai/schemastery": {
       "optional": true
-    },
-    "react": {
-      "optional": true
     }
   },
   "dsh": {
     "bundle": {
       "patch": "./cordis.patch.yml"
-    },
-    "client": {
-      "platform": "web",
-      "inject": [
-        "@deepseek-ai/dsh-client-ui-settings-plugins"
-      ]
     }
   },
   "keywords": [

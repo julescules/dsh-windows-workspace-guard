@@ -1,8 +1,8 @@
 # Windows Workspace Guard for DeepSeek Harness
 
-Filter audit summaries by time range and decision, with explicit matched, excluded, and invalid-timestamp counts.
+New in v2.0.0: native DSH 0.2.x settings with live policy updates and validated mode choices.
 
-> Compatibility: this maintenance release targets DSH 0.1.2-rc.1. DSH 0.2.1-rc.2 removes settings.installSection, so this Windows plugin does not support that host yet. Its settings integration and UI require migration; the peer dependency bound remains below 0.2.0.
+> Compatibility: v2 requires DSH 0.2.1-rc.3 or later within 0.2.x. DSH 0.1.2-rc.1 users should retain v1.2.0. Native schema-generated settings replace the legacy custom client card; profile configuration updates apply immediately.
 
 **Understand what your Windows agent is about to change—and why a call was blocked.**
 
@@ -43,7 +43,7 @@ Stop a Windows agent before it deletes originals, escapes the workspace, destroy
 ## Start in 30 seconds
 
 ```powershell
-dsh plugin --profile web add github:julescules/dsh-windows-workspace-guard#v1.2.0
+dsh plugin --profile web add github:julescules/dsh-windows-workspace-guard#v2.0.0
 dsh --profile web --dump-config
 dsh --profile web
 ```
@@ -56,7 +56,7 @@ to inspect this command without executing it:
 Get-Content -LiteralPath $env:DSH_HOME\.credentials.yaml
 ```
 
-## Why v1.2.0
+## Policy coverage
 
 ### Verified multi-tool boundary
 
@@ -64,7 +64,7 @@ The default protected set follows the official rc.1 Windows/file surface: `pwsh`
 
 Configured tools without a verified argument adapter fail closed. Doctor reports every configured tool as `covered` or `unsupported`; the plugin never treats an unknown schema as PowerShell and calls it protected.
 
-Upgrades preserve live settings. If an older profile already stored a shorter `toolNames` list, add `read_image`, `glob`, and `grep` in the settings card; Doctor will show the effective coverage.
+Profile configuration remains authoritative. Copy any legacy settings-section overrides into the profile before upgrading. If `toolNames` is a shorter list, add `read_image`, `glob`, and `grep` in the native form; Doctor shows the effective coverage.
 
 Official `grep` searches hidden and ignored files. With `guardSensitiveData` enabled, v1.2.0 requires a narrow `include` glob such as `*.js` or `*.ks`; an unbounded search fails closed before a hidden `.env` can be returned. Explicit credential-like paths and glob patterns are blocked too.
 
@@ -111,7 +111,7 @@ Use `windows_workspace_guard_check` for a dry run. Select `pwsh` with `command`;
 
 ## Main settings
 
-The DSH Web settings card updates these values live:
+The native DSH plugin settings form updates these values live:
 
 ```yaml
 enabled: true
@@ -136,7 +136,7 @@ The package stays outside Harness core and uses the official `dsh.bundle.patch`,
 ## Upgrade, disable, uninstall
 
 ```powershell
-dsh plugin --profile web add github:julescules/dsh-windows-workspace-guard#v1.2.0
+dsh plugin --profile web add github:julescules/dsh-windows-workspace-guard#v2.0.0
 dsh plugin --profile web list
 dsh plugin --help
 ```
@@ -156,8 +156,8 @@ Use the disable/remove command shown by `dsh plugin --help` for your Harness bui
 ```powershell
 npm run check
 npm pack --dry-run
-node scripts/build-release-metadata.mjs .\dsh-windows-workspace-guard-1.2.0.tgz .\builds\v1.2.0
-.\scripts\verify-release.ps1 -PackagePath .\dsh-windows-workspace-guard-1.2.0.tgz -ChecksumsPath .\builds\v1.2.0\SHA256SUMS
+node scripts/build-release-metadata.mjs .\dsh-windows-workspace-guard-2.0.0.tgz .\builds\v2.0.0
+.\scripts\verify-release.ps1 -PackagePath .\dsh-windows-workspace-guard-2.0.0.tgz -ChecksumsPath .\builds\v2.0.0\SHA256SUMS
 ```
 
 Each release ships a SHA-256 checksum and CycloneDX SBOM. The verifier reads files literally and makes no network request.
@@ -177,4 +177,6 @@ See [CONTRIBUTING.md](CONTRIBUTING.md) and [SECURITY.md](SECURITY.md).
 
 [MIT](LICENSE)
 
-Compatibility: this maintenance release targets DSH 0.1.2-rc.1. DSH 0.2.1-rc.2 removes settings.installSection, so this Windows plugin does not support that host yet. Its settings integration and UI require migration; the peer dependency bound remains below 0.2.0.
+Compatibility: v2 requires DSH 0.2.1-rc.3 or later within 0.2.x. DSH 0.1.2-rc.1 users should retain v1.2.0. Native schema-generated settings replace the legacy custom client card; profile configuration updates apply immediately.
+
+Host contract regression: install the pinned dependencies shown in `.github/workflows/ci.yml`, then run `npm run test:host`. Verified against actual rc.3 Loader/Settings/Tools with an in-memory profile editor: live policy updates, unchanged plugin fiber, stale revision and invalid-mode rejection. Browser rendering and model execution are not covered. Legacy settings-section overrides must be copied into profile configuration when upgrading; v2 does not import old settings files.
